@@ -1,0 +1,70 @@
+# Trading Lab — étape B : environnement minimal (backend + postgres)
+# Projet isolé : ne touche à rien de tikeayiti.
+
+name: trading-lab
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trading-lab-postgres
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tradinglab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant — crée le fichier .env (voir .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-tradinglab}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - lab-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-tradinglab}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: trading-lab-backend
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      TZ: UTC
+    networks:
+      - lab-net
+      - tikeayiti_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  lab-net:
+    driver: bridge
+  tikeayiti_default:
+    external: true
+
+volumes:
+  pgdata:

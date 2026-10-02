@@ -1,0 +1,81 @@
+"""Scheduler léger in-process (APScheduler) : une seule instance, pas de chevauchement.
+
+- sync_job (30 min) : données de marché incrémentales — toujours actif.
+- paper_job (15 min) : cycle de paper trading — seulement si activé (défaut : off).
+"""
+
+from __future__ import annotations
+
+import logging
+
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from app import db
+from app.market_data import sync as market_sync
+from app.paper_trading import engine as paper_engine
+from app.risk import limits
+
+log = logging.getLogger("tradinglab")
+
+_scheduler: BackgroundScheduler | None = None
+
+
+def _pairs():
+    from app.config import settings
+    syms = [s.strip() for s in settings.market_data_symbols.split(",") if s.strip()]
+    tfs = [t.strip() for t in settings.market_data_timeframes.split(",") if t.strip()]
+    return [(s, t) for s in syms for t in tfs]
+
+
+def sync_job() -> None:
+    """Données de marché : reprise incrémentale sur toutes les paires."""
+    for symbol, timeframe in _pairs():
+        try:
+            with db.get_conn() as conn:
+                r = market_sync.sync_symbol(conn, symbol, timeframe, lookback_days=2)
+            log.info("Sync %s %s : +%s bougies, %s trous",
+                     r["symbol"], r["timeframe"], r["inserted"], r["gaps"],
+                     extra={"event": "DATA_FETCH"})
+        except Exception as exc:
+            limits.log_event("ERROR", "SYSTEM_ERROR",
+                             f"sync_job {symbol} {timeframe} : {type(exc).__name__}",
+                             {"symbol": symbol, "timeframe": timeframe})
+
+
+def paper_job() -> None:
+    """Cycle de paper trading (no-op si désactivé)."""
+    try:
+        result = paper_engine.run_cycle()
+        if result.get("status") == "ok":
+            n_actions = sum(len(p.get("actions", [])) for p in result.get("pairs", []))
+            if n_actions:
+                log.info("paper_job : %s actions", n_actions,
+                         extra={"event": "PAPER_CYCLE"})
+    except Exception as exc:
+        limits.log_event("ERROR", "SYSTEM_ERROR",
+                         f"paper_job : {type(exc).__name__}", {})
+
+
+def start() -> None:
+    global _scheduler
+    if _scheduler and _scheduler.running:
+        return
+    _scheduler = BackgroundScheduler(timezone="UTC")
+    _scheduler.add_job(sync_job, "interval", minutes=30,
+                       max_instances=1, coalesce=True, id="sync_job")
+    _scheduler.add_job(paper_job, "interval", minutes=15,
+                       max_instances=1, coalesce=True, id="paper_job")
+    _scheduler.start()
+    log.info("Scheduler démarré (sync 30min, paper 15min)",
+             extra={"event": "SCHEDULER_START"})
+
+
+def stop() -> None:
+    global _scheduler
+    if _scheduler and _scheduler.running:
+        _scheduler.shutdown(wait=False)
+        log.info("Scheduler arrêté", extra={"event": "SCHEDULER_STOP"})
+
+
+def is_running() -> bool:
+    return bool(_scheduler and _scheduler.running)
