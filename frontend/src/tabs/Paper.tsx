@@ -47,7 +47,7 @@ export default function Paper() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-sm font-semibold text-amber-300">
+      <div className="rounded-xl border border border-amber-600/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700">
         PAPER TRADING — AUCUN ARGENT RÉEL. Positions virtuelles uniquement.
       </div>
 
@@ -60,9 +60,9 @@ export default function Paper() {
 
       <Card title="Contrôle">
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-slate-500">
             Statut : {account?.paper_trading_enabled
-              ? <span className="font-semibold text-emerald-400">ACTIF</span>
+              ? <span className="font-semibold text-emerald-600">ACTIF</span>
               : <span className="font-semibold text-slate-500">DÉSACTIVÉ</span>}
           </span>
           <Btn onClick={toggle} kind={account?.paper_trading_enabled ? "danger" : "primary"} disabled={acting}>
@@ -80,12 +80,12 @@ export default function Paper() {
               <th className="pr-3 text-right">Prix actuel</th><th className="pr-3 text-right">PnL latent</th><th className="pr-3 text-right">Stop</th>
             </tr></thead>
             <tbody>{positions.map((p, i) => (
-              <tr key={i} className="border-t border-white/10">
-                <td className="py-1.5 pr-3 text-slate-300">{p.symbol} <span className="text-slate-500">{p.timeframe}</span></td>
+              <tr key={i} className="border-t border-slate-900/10">
+                <td className="py-1.5 pr-3 text-slate-600">{p.symbol} <span className="text-slate-500">{p.timeframe}</span></td>
                 <td className="pr-3"><SignalBadge signal={p.direction} /></td>
-                <td className="pr-3 text-right text-slate-400">{p.entry_price.toFixed(2)}</td>
-                <td className="pr-3 text-right text-slate-300">{p.current_price?.toFixed(2) ?? "—"}</td>
-                <td className={`pr-3 text-right font-semibold ${toneFor(p.unrealized_pnl) === "pos" ? "text-emerald-400" : toneFor(p.unrealized_pnl) === "neg" ? "text-rose-400" : ""}`}>
+                <td className="pr-3 text-right text-slate-500">{p.entry_price.toFixed(2)}</td>
+                <td className="pr-3 text-right text-slate-600">{p.current_price?.toFixed(2) ?? "—"}</td>
+                <td className={`pr-3 text-right font-semibold ${toneFor(p.unrealized_pnl) === "pos" ? "text-emerald-600" : toneFor(p.unrealized_pnl) === "neg" ? "text-rose-600" : ""}`}>
                   {fmtUSD(p.unrealized_pnl)} <span className="text-xs">({fmtPct(p.unrealized_pct)})</span>
                 </td>
                 <td className="pr-3 text-right text-slate-500">{p.stop_price?.toFixed(2) ?? "—"}</td>
@@ -104,11 +104,11 @@ export default function Paper() {
               <th className="pr-3 text-right">PnL</th><th className="pr-3">Raison</th>
             </tr></thead>
             <tbody>{trades.map((t, i) => (
-              <tr key={i} className="border-t border-white/10">
-                <td className="py-1.5 pr-3 text-slate-400">{shortTs(t.exit_ts)}</td>
-                <td className="pr-3 text-slate-300">{t.symbol} <span className="text-slate-500">{t.timeframe}</span></td>
+              <tr key={i} className="border-t border-slate-900/10">
+                <td className="py-1.5 pr-3 text-slate-500">{shortTs(t.exit_ts)}</td>
+                <td className="pr-3 text-slate-600">{t.symbol} <span className="text-slate-500">{t.timeframe}</span></td>
                 <td className="pr-3"><SignalBadge signal={t.direction} /></td>
-                <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-emerald-400" : "text-rose-400"}`}>{fmtUSD(t.pnl)}</td>
+                <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-emerald-600" : "text-rose-600"}`}>{fmtUSD(t.pnl)}</td>
                 <td className="text-slate-500">{t.exit_reason}</td>
               </tr>
             ))}</tbody>

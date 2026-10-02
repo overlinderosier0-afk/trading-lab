@@ -17,8 +17,8 @@ function verdictTone(v: string): "pos" | "neg" | "neutral" {
 
 function MetricRow({ label, is, oos, fmt }: { label: string; is: any; oos: any; fmt: (v: any) => string }) {
   return (
-    <tr className="border-t border-white/10">
-      <td className="py-1.5 pr-2 text-slate-400">{label}</td>
+    <tr className="border-t border-slate-900/10">
+      <td className="py-1.5 pr-2 text-slate-500">{label}</td>
       <td className="py-1.5 pr-2 text-right font-mono">{fmt(is)}</td>
       <td className="py-1.5 text-right font-mono">{fmt(oos)}</td>
     </tr>
@@ -111,7 +111,7 @@ export default function Validation() {
       {error && <ErrorBox message={error} />}
 
       <Card title="IS / OOS — le passé prédit-il l'avenir ?">
-        <p className="mb-3 text-sm text-slate-400">
+        <p className="mb-3 text-sm text-slate-500">
           Découpe l'historique en deux : optimisation de la grille sur la partie IS,
           évaluation des meilleurs paramètres sur la partie OOS (jamais vue).
         </p>
@@ -168,7 +168,7 @@ export default function Validation() {
       </Card>
 
       <Card title="Walk-forward — robustesse dans le temps">
-        <p className="mb-3 text-sm text-slate-400">
+        <p className="mb-3 text-sm text-slate-500">
           Fenêtre d'optimisation roulante : à chaque pli, la grille est optimisée sur
           le TRAIN puis évaluée sur le TEST suivant. Le TEST ne sert jamais à choisir.
         </p>
@@ -199,9 +199,9 @@ export default function Validation() {
               </tr></thead>
               <tbody>
                 {wfRes.folds.map((f: any, i: number) => (
-                  <tr key={i} className="border-t border-white/10">
+                  <tr key={i} className="border-t border-slate-900/10">
                     <td className="py-1.5 pr-2">{i + 1}</td>
-                    <td className="py-1.5 pr-2 text-slate-400">{shortTs(f.test_start)} → {shortTs(f.test_end)}</td>
+                    <td className="py-1.5 pr-2 text-slate-500">{shortTs(f.test_start)} → {shortTs(f.test_end)}</td>
                     <td className="py-1.5 pr-2 font-mono text-xs">
                       ema {f.best_params.ema_fast}/{f.best_params.ema_slow}, rsi {f.best_params.rsi_buy}/{f.best_params.rsi_sell}
                     </td>
@@ -228,15 +228,15 @@ export default function Validation() {
             </tr></thead>
             <tbody>
               {history.map((h: any) => (
-                <tr key={h.id} className="border-t border-white/10">
-                  <td className="py-1.5 pr-2 text-slate-400">{shortTs(h.created_at)}</td>
+                <tr key={h.id} className="border-t border-slate-900/10">
+                  <td className="py-1.5 pr-2 text-slate-500">{shortTs(h.created_at)}</td>
                   <td className="py-1.5 pr-2">
                     <button className="text-blue-400 hover:underline" onClick={() => open(h.id)}>
                       {h.kind === "is_oos" ? "IS/OOS" : "Walk-forward"}
                     </button>
                   </td>
                   <td className="py-1.5 pr-2 font-mono text-xs">{h.symbol} {h.timeframe}</td>
-                  <td className="py-1.5 text-xs text-slate-300">
+                  <td className="py-1.5 text-xs text-slate-600">
                     {h.kind === "is_oos"
                       ? `verdict : ${String(h.summary?.verdict ?? "—").replace(/_/g, " ")}`
                       : `${h.summary?.profitable_folds ?? "—"} plis profitables, Sharpe moyen ${h.summary?.avg_test_sharpe ?? "—"}`}

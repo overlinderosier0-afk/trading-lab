@@ -6,7 +6,7 @@ export function Card({ title, children, className = "" }: {
 }) {
   return (
     <div className={`glass p-5 ${className}`}>
-      {title && <h3 className="font-display mb-4 text-sm font-semibold uppercase tracking-widest text-slate-300/80">{title}</h3>}
+      {title && <h3 className="font-display mb-4 text-sm font-semibold uppercase tracking-widest text-slate-600/80">{title}</h3>}
       {children}
     </div>
   );
@@ -18,16 +18,16 @@ export function Stat({ label, value, sub, tone = "neutral" }: {
   tone?: "neutral" | "pos" | "neg" | "warn";
 }) {
   const colors = {
-    neutral: "text-slate-100",
-    pos: "text-emerald-400",
-    neg: "text-rose-400",
-    warn: "text-amber-400",
+    neutral: "text-slate-800",
+    pos: "text-emerald-600",
+    neg: "text-rose-600",
+    warn: "text-amber-600",
   };
   return (
     <div>
-      <div className="text-xs uppercase tracking-widest text-slate-400/80">{label}</div>
+      <div className="text-xs uppercase tracking-widest text-slate-500/80">{label}</div>
       <div className={`tnum font-display mt-1 text-2xl font-bold ${colors[tone]}`}>{value}</div>
-      {sub && <div className="mt-1 text-xs text-slate-400/70">{sub}</div>}
+      {sub && <div className="mt-1 text-xs text-slate-500/70">{sub}</div>}
     </div>
   );
 }
@@ -40,11 +40,11 @@ export function toneFor(v: number | null | undefined): "pos" | "neg" | "neutral"
 // ---------- Badge signal ----------
 export function SignalBadge({ signal }: { signal: string }) {
   const styles: Record<string, string> = {
-    BUY: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30 shadow-[0_0_16px_rgba(52,211,153,0.15)]",
-    SELL: "bg-rose-400/10 text-rose-300 border-rose-400/30 shadow-[0_0_16px_rgba(251,113,133,0.15)]",
-    HOLD: "bg-white/5 text-slate-300 border-white/15",
-    long: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30 shadow-[0_0_16px_rgba(52,211,153,0.15)]",
-    short: "bg-rose-400/10 text-rose-300 border-rose-400/30 shadow-[0_0_16px_rgba(251,113,133,0.15)]",
+    BUY: "bg-emerald-600/10 text-emerald-700 border-emerald-600/30 ",
+    SELL: "bg-rose-600/10 text-rose-700 border-rose-600/30 ",
+    HOLD: "bg-slate-500/10 text-slate-600 border-slate-900/15",
+    long: "bg-emerald-600/10 text-emerald-700 border-emerald-600/30 ",
+    short: "bg-rose-600/10 text-rose-700 border-rose-600/30 ",
   };
   return (
     <span className={`inline-block rounded-lg border px-2 py-0.5 text-xs font-semibold backdrop-blur-md ${styles[signal] ?? styles.HOLD}`}>
@@ -65,7 +65,7 @@ export function EdgeBadge({ status, note }: { status: string; note?: string }) {
   }
   if (status === "UNDER_REVIEW") {
     return (
-      <div className="mt-3 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200 backdrop-blur-md">
+      <div className="mt-3 rounded-xl border border-cyan-600/30 bg-cyan-600/10 px-3 py-2 text-xs text-cyan-700 backdrop-blur-md">
         <span className="font-bold">En cours d'évaluation — ne pas utiliser pour trader.</span>
         {note && <span className="mt-1 block opacity-70">{note}</span>}
       </div>
@@ -75,7 +75,7 @@ export function EdgeBadge({ status, note }: { status: string; note?: string }) {
 }
 
 // ---------- Graphique ligne SVG (sans dépendance) ----------
-export function LineChart({ data, height = 220, color = "#34d399", formatY }: {
+export function LineChart({ data, height = 220, color = "#059669", formatY }: {
   data: { ts: string; value: number }[];
   height?: number;
   color?: string;
@@ -112,7 +112,7 @@ export function Loading({ label = "Chargement…" }: { label?: string }) {
 
 export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="glass border-rose-400/30 p-4 text-sm text-rose-200">
+    <div className="glass border border-rose-600/30 p-4 text-sm text-rose-200">
       <div className="font-semibold">Erreur</div>
       <div className="mt-1 break-words opacity-80">{message}</div>
       {onRetry && (

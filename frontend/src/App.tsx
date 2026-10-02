@@ -18,11 +18,11 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState("dashboard");
   return (
-    <div className="min-h-screen text-slate-100">
+    <div className="min-h-screen text-slate-800">
       <div className="aurora-bg" aria-hidden="true" />
       <header className="topbar sticky top-0 z-50">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <span className="text-xl drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]">🌙</span>
+          <span className="text-xl ">🌙</span>
           <h1 className="font-display text-glow-cyan text-lg font-bold tracking-tight">Trading Lab</h1>
           <span className="glass-banner px-2.5 py-1 text-xs font-bold">
             PAPER TRADING — AUCUN ARGENT RÉEL
@@ -52,7 +52,7 @@ export default function App() {
         {tab === "market" && <Market />}
         {tab === "system" && <System />}
       </main>
-      <footer className="mx-auto max-w-7xl px-4 pb-6 text-center text-xs text-slate-400/60">
+      <footer className="mx-auto max-w-7xl px-4 pb-6 text-center text-xs text-slate-500/60">
         Trading Lab — recherche et simulation. Backtest ≠ garantie de performance future.
       </footer>
     </div>

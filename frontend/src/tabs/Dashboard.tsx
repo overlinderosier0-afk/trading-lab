@@ -54,10 +54,10 @@ export default function Dashboard() {
         <Card><Stat label="Positions ouvertes" value={String(account?.open_positions ?? 0)} sub={account?.paper_trading_enabled ? "paper trading actif" : "paper trading désactivé"} /></Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title={`Courbe du capital — dernier backtest${btMeta ? ` (${btMeta})` : ""}`}>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card title={`Courbe du capital — dernier backtest${btMeta ? ` (${btMeta})` : ""}`} className="lg:col-span-2">
           {curve.length
-            ? <LineChart data={curve} color="#60a5fa" formatY={(v) => "$" + v.toFixed(0)} />
+            ? <LineChart data={curve} color="#2563eb" formatY={(v) => "$" + v.toFixed(0)} />
             : <p className="text-sm text-slate-500">Aucun backtest pour l'instant — onglet Backtests.</p>}
           <p className="mt-2 text-xs text-slate-500">Backtest ≠ garantie de performance future.</p>
         </Card>
@@ -65,11 +65,11 @@ export default function Dashboard() {
           {signals.length === 0 && <p className="text-sm text-slate-500">Aucun signal — le scheduler génère les signaux toutes les 15 min.</p>}
           <div className="space-y-2">
             {signals.map((s, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-sm">
-                <span className="text-slate-400">{shortTs(s.ts)}</span>
-                <span className="text-slate-300">{s.symbol} <span className="text-slate-500">{s.timeframe}</span></span>
+              <div key={i} className="glass-deep flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                <span className="text-slate-500">{shortTs(s.ts)}</span>
+                <span className="text-slate-600">{s.symbol} <span className="text-slate-500">{s.timeframe}</span></span>
                 <SignalBadge signal={s.signal} />
-                <span className="text-slate-400">${s.price.toFixed(2)}</span>
+                <span className="text-slate-500">${s.price.toFixed(2)}</span>
               </div>
             ))}
           </div>

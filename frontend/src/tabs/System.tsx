@@ -16,11 +16,11 @@ interface SysStatus {
 interface SysEvent { ts: string; level: string; event: string; message: string }
 
 function Dot({ ok }: { ok: boolean }) {
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? "bg-emerald-400" : "bg-rose-400"}`} />;
+  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? "bg-emerald-600" : "bg-rose-600"}`} />;
 }
 
 const LEVEL_STYLE: Record<string, string> = {
-  INFO: "text-sky-400", WARNING: "text-amber-400", ERROR: "text-rose-400", CRITICAL: "text-rose-300 font-bold",
+  INFO: "text-sky-600", WARNING: "text-amber-600", ERROR: "text-rose-600", CRITICAL: "text-rose-700 font-bold",
 };
 
 export default function System() {
@@ -63,11 +63,11 @@ export default function System() {
         {events.length === 0 && <p className="text-sm text-slate-500">Aucun événement.</p>}
         <div className="max-h-[500px] space-y-1 overflow-y-auto">
           {events.map((e, i) => (
-            <div key={i} className="flex items-start gap-3 rounded bg-white/[0.03] px-3 py-1.5 text-sm">
+            <div key={i} className="flex items-start gap-3 rounded glass-deep px-3 py-1.5 text-sm">
               <span className="whitespace-nowrap text-slate-500">{shortTs(e.ts)}</span>
-              <span className={`w-20 shrink-0 font-semibold ${LEVEL_STYLE[e.level] ?? "text-slate-400"}`}>{e.level}</span>
+              <span className={`w-20 shrink-0 font-semibold ${LEVEL_STYLE[e.level] ?? "text-slate-500"}`}>{e.level}</span>
               <span className="w-36 shrink-0 text-slate-500">{e.event}</span>
-              <span className="text-slate-300">{e.message}</span>
+              <span className="text-slate-600">{e.message}</span>
             </div>
           ))}
         </div>

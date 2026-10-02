@@ -84,7 +84,7 @@ export default function Backtests() {
           return s ? <EdgeBadge status={s.edge_status} note={s.edge_note} /> : null;
         })()}
         <div className="mt-3 flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={form.allow_short} onChange={set("allow_short")} className="h-4 w-4" />
             Autoriser le short
           </label>
@@ -106,7 +106,7 @@ export default function Backtests() {
             <Stat label="Expectancy" value={fmtUSD(m.expectancy as number)} tone={toneFor(m.expectancy as number)} />
           </div>
           <div className="mt-4">
-            <LineChart data={detail.results.equity_curve.map((p) => ({ ts: p.ts, value: p.equity }))} color="#60a5fa" formatY={(v) => "$" + v.toFixed(0)} />
+            <LineChart data={detail.results.equity_curve.map((p) => ({ ts: p.ts, value: p.equity }))} color="#2563eb" formatY={(v) => "$" + v.toFixed(0)} />
           </div>
           <p className="mt-2 text-xs text-slate-500">Backtest ≠ garantie de performance future. Frais et slippage inclus.</p>
           <div className="mt-4 overflow-x-auto">
@@ -117,12 +117,12 @@ export default function Backtests() {
               </tr></thead>
               <tbody>
                 {detail.results.trades.slice(0, 50).map((t, i) => (
-                  <tr key={i} className="border-t border-white/10">
-                    <td className="py-1.5 pr-3 text-slate-400">{shortTs(t.entry_ts)} <span className="text-slate-500">@ {t.entry_price}</span></td>
-                    <td className="pr-3 text-slate-400">{shortTs(t.exit_ts)} <span className="text-slate-500">@ {t.exit_price}</span></td>
+                  <tr key={i} className="border-t border-slate-900/10">
+                    <td className="py-1.5 pr-3 text-slate-500">{shortTs(t.entry_ts)} <span className="text-slate-500">@ {t.entry_price}</span></td>
+                    <td className="pr-3 text-slate-500">{shortTs(t.exit_ts)} <span className="text-slate-500">@ {t.exit_price}</span></td>
                     <td className="pr-3"><SignalBadge signal={t.direction} /></td>
-                    <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-emerald-400" : toneFor(t.pnl) === "neg" ? "text-rose-400" : ""}`}>{fmtUSD(t.pnl)}</td>
-                    <td className="pr-3 text-right text-slate-400">{fmtPct(t.pnl_pct)}</td>
+                    <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-emerald-600" : toneFor(t.pnl) === "neg" ? "text-rose-600" : ""}`}>{fmtUSD(t.pnl)}</td>
+                    <td className="pr-3 text-right text-slate-500">{fmtPct(t.pnl_pct)}</td>
                     <td className="text-slate-500">{t.exit_reason}</td>
                   </tr>
                 ))}
@@ -137,10 +137,10 @@ export default function Backtests() {
         {history.length === 0 && <p className="text-sm text-slate-500">Aucun backtest enregistré.</p>}
         <div className="space-y-2">
           {history.map((b) => (
-            <button key={b.id} onClick={() => open(b.id)} className="flex w-full items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-sm hover:bg-white/[0.07]">
-              <span className="text-slate-400">{shortTs(b.created_at)}</span>
-              <span className="text-slate-300">{b.strategy} · {b.symbol} {b.timeframe}</span>
-              <span className={`font-semibold ${toneFor(Number(b.total_return)) === "pos" ? "text-emerald-400" : "text-rose-400"}`}>{fmtPct(Number(b.total_return))}</span>
+            <button key={b.id} onClick={() => open(b.id)} className="flex w-full items-center justify-between rounded-lg glass-deep px-3 py-2 text-sm hover:bg-white/40">
+              <span className="text-slate-500">{shortTs(b.created_at)}</span>
+              <span className="text-slate-600">{b.strategy} · {b.symbol} {b.timeframe}</span>
+              <span className={`font-semibold ${toneFor(Number(b.total_return)) === "pos" ? "text-emerald-600" : "text-rose-600"}`}>{fmtPct(Number(b.total_return))}</span>
               <span className="text-slate-500">{b.n_trades} trades</span>
             </button>
           ))}

@@ -49,7 +49,7 @@ export default function Market() {
           {last && (
             <div className="ml-auto text-right">
               <div className="text-2xl font-bold">${last.close.toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>
-              <div className={`text-sm ${chg >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              <div className={`text-sm ${chg >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                 {(chg >= 0 ? "+" : "") + (chg * 100).toFixed(2)} % sur la période
               </div>
             </div>
@@ -59,7 +59,7 @@ export default function Market() {
 
       {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={() => load()} /> : (
         <Card title={`${symbol} ${timeframe} — clôtures (200 dernières)`}>
-          <LineChart data={candles.map((c) => ({ ts: c.ts, value: c.close }))} color="#60a5fa" formatY={(v) => "$" + v.toFixed(0)} />
+          <LineChart data={candles.map((c) => ({ ts: c.ts, value: c.close }))} color="#2563eb" formatY={(v) => "$" + v.toFixed(0)} />
         </Card>
       )}
 
@@ -70,12 +70,12 @@ export default function Market() {
             <th className="pr-3">Première</th><th className="pr-3">Dernière</th><th className="text-right">Trous</th>
           </tr></thead>
           <tbody>{status.map((p, i) => (
-            <tr key={i} className="border-t border-white/10">
-              <td className="py-1.5 pr-3 text-slate-300">{p.symbol} <span className="text-slate-500">{p.timeframe}</span></td>
-              <td className="pr-3 text-right text-slate-400">{p.candles}</td>
+            <tr key={i} className="border-t border-slate-900/10">
+              <td className="py-1.5 pr-3 text-slate-600">{p.symbol} <span className="text-slate-500">{p.timeframe}</span></td>
+              <td className="pr-3 text-right text-slate-500">{p.candles}</td>
               <td className="pr-3 text-slate-500">{shortTs(p.first_ts)}</td>
               <td className="pr-3 text-slate-500">{shortTs(p.last_ts)}</td>
-              <td className={`text-right font-semibold ${p.gaps ? "text-amber-400" : "text-emerald-400"}`}>{p.gaps}</td>
+              <td className={`text-right font-semibold ${p.gaps ? "text-amber-600" : "text-emerald-600"}`}>{p.gaps}</td>
             </tr>
           ))}</tbody>
         </table></div>
