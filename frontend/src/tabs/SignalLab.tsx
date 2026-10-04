@@ -48,8 +48,8 @@ function OriginBadge({ origin }: { origin: string }) {
   return (
     <span className={`inline-block rounded-lg border px-2 py-0.5 text-xs font-semibold ${
       isAuto
-        ? "bg-sky-600/10 text-sky-700 border-sky-600/30"
-        : "bg-slate-500/10 text-slate-500 border-slate-900/15"
+        ? "bg-sky-600/10 text-[#8b98ac] border-sky-600/30"
+        : "bg-white/5 text-[#5b6b82] border-white/10"
     }`}>
       {isAuto ? "Auto" : "Manuel"}
     </span>
@@ -58,10 +58,10 @@ function OriginBadge({ origin }: { origin: string }) {
 
 function OutcomeBadge({ outcome }: { outcome: string }) {
   const map: Record<string, string> = {
-    win: "bg-emerald-600/10 text-emerald-700 border-emerald-600/30",
-    loss: "bg-rose-600/10 text-rose-700 border-rose-600/30",
-    pending: "bg-amber-500/10 text-amber-700 border-amber-500/30",
-    expired: "bg-slate-500/10 text-slate-500 border-slate-900/15",
+    win: "bg-[#00e676]/10 text-[#00e676] border-[#00e676]/30",
+    loss: "bg-[#ff5252]/10 text-[#ff5252] border-[#ff5252]/30",
+    pending: "bg-[#ffb300]/10 text-[#ffb300] border-amber-500/30",
+    expired: "bg-white/5 text-[#5b6b82] border-white/10",
   };
   const label: Record<string, string> = {
     win: "✓ WIN", loss: "✗ LOSS", pending: "⏳ En cours", expired: "Expiré",
@@ -78,19 +78,19 @@ function FactorBar({ factor }: { factor: Factor }) {
   const pct = (factor.points / factor.weight) * 50; // -50 … +50
   const left = pct < 0 ? 50 + pct : 50;
   const width = Math.abs(pct);
-  const color = factor.points >= 0 ? "bg-emerald-500/70" : "bg-rose-500/70";
+  const color = factor.points >= 0 ? "bg-[#00e676]/70" : "bg-[#ff5252]/70";
   return (
     <div className="flex items-center gap-3">
-      <div className="w-28 shrink-0 text-sm text-slate-600">{factor.label}</div>
-      <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-slate-900/5">
-        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-900/20" />
+      <div className="w-28 shrink-0 text-sm text-[#8b98ac]">{factor.label}</div>
+      <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/20" />
         <div className={`absolute top-0 bottom-0 rounded-full ${color}`} style={{ left: `${left}%`, width: `${width}%` }} />
       </div>
       <div className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
-        <span className={factor.points >= 0 ? "text-emerald-700" : "text-rose-700"}>
+        <span className={factor.points >= 0 ? "text-[#00e676]" : "text-[#ff5252]"}>
           {factor.points >= 0 ? "+" : ""}{factor.points.toFixed(1)}
         </span>
-        <span className="text-slate-400"> / {factor.weight}</span>
+        <span className="text-[#5b6b82]"> / {factor.weight}</span>
       </div>
     </div>
   );
@@ -158,13 +158,13 @@ export default function SignalLab() {
           <Btn onClick={generate} disabled={generating}>
             {generating ? "Analyse en cours…" : "Générer un signal"}
           </Btn>
-          <div className="ml-auto max-w-xs text-xs text-slate-500">
+          <div className="ml-auto max-w-xs text-xs text-[#5b6b82]">
             Score /100 = force du modèle, <strong>pas</strong> une probabilité de gain.
             Analyse uniquement — aucune exécution.
           </div>
         </div>
         {gen?.duplicate && (
-          <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          <div className="mt-3 rounded-xl bg-[#ffb300]/10 px-3 py-2 text-xs text-[#ffb300]">
             Cette bougie a déjà été scorée — aucun doublon enregistré. Le signal affiché est identique au précédent.
           </div>
         )}
@@ -176,36 +176,36 @@ export default function SignalLab() {
             <div className="grid gap-4 lg:grid-cols-5">
               <Card className="lg:col-span-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-slate-500">{gen.symbol} · {gen.timeframe}</div>
+                  <div className="text-sm text-[#5b6b82]">{gen.symbol} · {gen.timeframe}</div>
                   <SignalBadge signal={sig.direction} />
                 </div>
                 <div className="mt-3 text-center">
                   <div className={`font-display text-6xl font-bold tabular-nums ${
-                    sig.direction === "BUY" ? "text-emerald-600" : sig.direction === "SELL" ? "text-rose-600" : "text-slate-500"
+                    sig.direction === "BUY" ? "text-[#00e676]" : sig.direction === "SELL" ? "text-[#ff5252]" : "text-[#5b6b82]"
                   }`}>
                     {sig.direction === "NEUTRAL" ? "—" : `${sig.score}/100`}
                   </div>
-                  <div className="mt-1 text-xs uppercase tracking-widest text-slate-500">score du modèle</div>
+                  <div className="mt-1 text-xs uppercase tracking-widest text-[#5b6b82]">score du modèle</div>
                   {sig.direction === "NEUTRAL" && (
-                    <div className="mt-2 text-sm text-slate-600">
+                    <div className="mt-2 text-sm text-[#8b98ac]">
                       Pas de conviction suffisante — aucun signal enregistré. Un bon modèle sait dire « je ne sais pas ».
                     </div>
                   )}
                 </div>
                 {sig.direction !== "NEUTRAL" && (
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div><div className="text-xs uppercase text-slate-500">Entrée</div><div className="font-bold tabular-nums">{sig.entry}</div></div>
-                    <div><div className="text-xs uppercase text-slate-500">Stop</div><div className="font-bold tabular-nums text-rose-600">{sig.stop_loss}</div></div>
-                    <div><div className="text-xs uppercase text-slate-500">Cible</div><div className="font-bold tabular-nums text-emerald-600">{sig.take_profit}</div></div>
+                    <div><div className="text-xs uppercase text-[#5b6b82]">Entrée</div><div className="font-bold tabular-nums">{sig.entry}</div></div>
+                    <div><div className="text-xs uppercase text-[#5b6b82]">Stop</div><div className="font-bold tabular-nums text-[#ff5252]">{sig.stop_loss}</div></div>
+                    <div><div className="text-xs uppercase text-[#5b6b82]">Cible</div><div className="font-bold tabular-nums text-[#00e676]">{sig.take_profit}</div></div>
                   </div>
                 )}
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                  <div><div className="text-xs uppercase text-slate-500">EMA 20/50/200</div><div className="tabular-nums">{sig.indicators.ema20} / {sig.indicators.ema50} / {sig.indicators.ema200}</div></div>
-                  <div><div className="text-xs uppercase text-slate-500">RSI 14</div><div className="font-bold tabular-nums">{sig.indicators.rsi14}</div></div>
-                  <div><div className="text-xs uppercase text-slate-500">ATR</div><div className="tabular-nums">{sig.atr} ({sig.indicators.atr_pct} %)</div></div>
+                  <div><div className="text-xs uppercase text-[#5b6b82]">EMA 20/50/200</div><div className="tabular-nums">{sig.indicators.ema20} / {sig.indicators.ema50} / {sig.indicators.ema200}</div></div>
+                  <div><div className="text-xs uppercase text-[#5b6b82]">RSI 14</div><div className="font-bold tabular-nums">{sig.indicators.rsi14}</div></div>
+                  <div><div className="text-xs uppercase text-[#5b6b82]">ATR</div><div className="tabular-nums">{sig.atr} ({sig.indicators.atr_pct} %)</div></div>
                 </div>
                 {gen.stored && (
-                  <div className="mt-3 text-xs text-slate-500">
+                  <div className="mt-3 text-xs text-[#5b6b82]">
                     Signal #{gen.stored.id.slice(0, 8)} enregistré — verdict après horizon
                     (résolution auto le {shortTs(gen.stored.resolve_at)}).
                   </div>
@@ -216,9 +216,9 @@ export default function SignalLab() {
                 <div className="space-y-3">
                   {FACTOR_ORDER.map((k) => sig.factors[k] && <FactorBar key={k} factor={sig.factors[k]} />)}
                 </div>
-                <div className="mt-4 border-t border-slate-900/10 pt-3">
-                  <div className="mb-2 text-xs uppercase tracking-widest text-slate-500">Justification</div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  <div className="mb-2 text-xs uppercase tracking-widest text-[#5b6b82]">Justification</div>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-[#c9d4e3]">
                     {sig.justification.map((j, i) => <li key={i}>{j}</li>)}
                   </ul>
                 </div>
@@ -229,7 +229,7 @@ export default function SignalLab() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Calibration — taux de réussite observé">
               {!stats ? <Loading label="Calcul…" /> : stats.total.n === 0 ? (
-                <div className="text-sm text-slate-500">
+                <div className="text-sm text-[#5b6b82]">
                   Aucun signal résolu pour l'instant. Génère des signaux : chacun est résolu
                   automatiquement après son horizon (3 bougies), et c'est ici que le taux
                   réel apparaîtra — par tranche de score.
@@ -237,22 +237,22 @@ export default function SignalLab() {
               ) : (
                 <>
                   <table className="w-full text-sm">
-                    <thead><tr className="text-left text-xs uppercase text-slate-500">
+                    <thead><tr className="text-left text-xs uppercase text-[#5b6b82]">
                       <th className="py-2 pr-3">Score</th><th className="pr-3 text-right">Signaux</th>
                       <th className="pr-3 text-right">Gagnants</th><th className="text-right">Taux observé</th>
                     </tr></thead>
                     <tbody>
                       {stats.buckets.map((b) => (
-                        <tr key={b.range} className="border-t border-slate-900/5">
+                        <tr key={b.range} className="border-t border-white/10">
                           <td className="py-2 pr-3 font-semibold tabular-nums">{b.range}</td>
                           <td className="pr-3 text-right tabular-nums">{b.n}</td>
                           <td className="pr-3 text-right tabular-nums">{b.wins}</td>
                           <td className="text-right font-bold tabular-nums">
-                            {b.win_rate === null ? <span className="font-normal text-slate-400">—</span> : `${(b.win_rate * 100).toFixed(1)} %`}
+                            {b.win_rate === null ? <span className="font-normal text-[#5b6b82]">—</span> : `${(b.win_rate * 100).toFixed(1)} %`}
                           </td>
                         </tr>
                       ))}
-                      <tr className="border-t-2 border-slate-900/15 font-bold">
+                      <tr className="border-t-2 border-white/10 font-bold">
                         <td className="py-2 pr-3">Total</td>
                         <td className="pr-3 text-right tabular-nums">{stats.total.n}</td>
                         <td className="pr-3 text-right tabular-nums">{stats.total.wins}</td>
@@ -262,9 +262,9 @@ export default function SignalLab() {
                       </tr>
                     </tbody>
                   </table>
-                  <div className="mt-3 text-xs text-slate-500">{stats.note}</div>
+                  <div className="mt-3 text-xs text-[#5b6b82]">{stats.note}</div>
                   {stats.pending > 0 && (
-                    <div className="mt-1 text-xs text-amber-700">{stats.pending} signal(aux) en attente de résolution.</div>
+                    <div className="mt-1 text-xs text-[#ffb300]">{stats.pending} signal(aux) en attente de résolution.</div>
                   )}
                 </>
               )}
@@ -272,18 +272,18 @@ export default function SignalLab() {
 
             <Card title="Historique des signaux">
               {history.length === 0 ? (
-                <div className="text-sm text-slate-500">Aucun signal généré pour {symbol} {timeframe}.</div>
+                <div className="text-sm text-[#5b6b82]">Aucun signal généré pour {symbol} {timeframe}.</div>
               ) : (
                 <div className="max-h-96 space-y-2 overflow-y-auto">
                   {history.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3 rounded-xl bg-slate-900/[0.03] px-3 py-2 text-sm">
+                    <div key={s.id} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2 text-sm">
                       <SignalBadge signal={s.direction} />
-                      <div className="font-bold tabular-nums">{s.score}<span className="font-normal text-slate-400">/100</span></div>
+                      <div className="font-bold tabular-nums">{s.score}<span className="font-normal text-[#5b6b82]">/100</span></div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs text-slate-500">
+                        <div className="truncate text-xs text-[#5b6b82]">
                           {shortTs(s.created_at)} → {shortTs(s.resolve_at)}
                         </div>
-                        <div className="text-xs tabular-nums text-slate-600">
+                        <div className="text-xs tabular-nums text-[#8b98ac]">
                           entrée {s.entry_price}
                           {s.exit_price !== null && <> → sortie {s.exit_price}</>}
                         </div>

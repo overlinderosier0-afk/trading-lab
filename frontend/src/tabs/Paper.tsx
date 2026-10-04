@@ -47,7 +47,7 @@ export default function Paper() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border border-amber-600/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700">
+      <div className="rounded-xl border border border-amber-600/40 bg-[#ffb300]/10 px-4 py-3 text-sm font-semibold text-[#ffb300]">
         PAPER TRADING — AUCUN ARGENT RÉEL. Positions virtuelles uniquement.
       </div>
 
@@ -60,10 +60,10 @@ export default function Paper() {
 
       <Card title="Contrôle">
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-[#5b6b82]">
             Statut : {account?.paper_trading_enabled
-              ? <span className="font-semibold text-emerald-600">ACTIF</span>
-              : <span className="font-semibold text-slate-500">DÉSACTIVÉ</span>}
+              ? <span className="font-semibold text-[#00e676]">ACTIF</span>
+              : <span className="font-semibold text-[#5b6b82]">DÉSACTIVÉ</span>}
           </span>
           <Btn onClick={toggle} kind={account?.paper_trading_enabled ? "danger" : "primary"} disabled={acting}>
             {account?.paper_trading_enabled ? "Désactiver (kill switch)" : "Activer le paper trading"}
@@ -72,23 +72,23 @@ export default function Paper() {
       </Card>
 
       <Card title={`Positions ouvertes (${positions.length})`}>
-        {positions.length === 0 && <p className="text-sm text-slate-500">Aucune position ouverte.</p>}
+        {positions.length === 0 && <p className="text-sm text-[#5b6b82]">Aucune position ouverte.</p>}
         {positions.length > 0 && (
           <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="text-left text-xs uppercase text-slate-500">
+            <thead><tr className="text-left text-xs uppercase text-[#5b6b82]">
               <th className="py-2 pr-3">Paire</th><th className="pr-3">Dir.</th><th className="pr-3 text-right">Entrée</th>
               <th className="pr-3 text-right">Prix actuel</th><th className="pr-3 text-right">PnL latent</th><th className="pr-3 text-right">Stop</th>
             </tr></thead>
             <tbody>{positions.map((p, i) => (
-              <tr key={i} className="border-t border-slate-900/10">
-                <td className="py-1.5 pr-3 text-slate-600">{p.symbol} <span className="text-slate-500">{p.timeframe}</span></td>
+              <tr key={i} className="border-t border-white/10">
+                <td className="py-1.5 pr-3 text-[#8b98ac]">{p.symbol} <span className="text-[#5b6b82]">{p.timeframe}</span></td>
                 <td className="pr-3"><SignalBadge signal={p.direction} /></td>
-                <td className="pr-3 text-right text-slate-500">{p.entry_price.toFixed(2)}</td>
-                <td className="pr-3 text-right text-slate-600">{p.current_price?.toFixed(2) ?? "—"}</td>
-                <td className={`pr-3 text-right font-semibold ${toneFor(p.unrealized_pnl) === "pos" ? "text-emerald-600" : toneFor(p.unrealized_pnl) === "neg" ? "text-rose-600" : ""}`}>
+                <td className="pr-3 text-right text-[#5b6b82]">{p.entry_price.toFixed(2)}</td>
+                <td className="pr-3 text-right text-[#8b98ac]">{p.current_price?.toFixed(2) ?? "—"}</td>
+                <td className={`pr-3 text-right font-semibold ${toneFor(p.unrealized_pnl) === "pos" ? "text-[#00e676]" : toneFor(p.unrealized_pnl) === "neg" ? "text-[#ff5252]" : ""}`}>
                   {fmtUSD(p.unrealized_pnl)} <span className="text-xs">({fmtPct(p.unrealized_pct)})</span>
                 </td>
-                <td className="pr-3 text-right text-slate-500">{p.stop_price?.toFixed(2) ?? "—"}</td>
+                <td className="pr-3 text-right text-[#5b6b82]">{p.stop_price?.toFixed(2) ?? "—"}</td>
               </tr>
             ))}</tbody>
           </table></div>
@@ -96,20 +96,20 @@ export default function Paper() {
       </Card>
 
       <Card title="Trades clôturés">
-        {trades.length === 0 && <p className="text-sm text-slate-500">Aucun trade clôturé pour l'instant.</p>}
+        {trades.length === 0 && <p className="text-sm text-[#5b6b82]">Aucun trade clôturé pour l'instant.</p>}
         {trades.length > 0 && (
           <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="text-left text-xs uppercase text-slate-500">
+            <thead><tr className="text-left text-xs uppercase text-[#5b6b82]">
               <th className="py-2 pr-3">Sortie</th><th className="pr-3">Paire</th><th className="pr-3">Dir.</th>
               <th className="pr-3 text-right">PnL</th><th className="pr-3">Raison</th>
             </tr></thead>
             <tbody>{trades.map((t, i) => (
-              <tr key={i} className="border-t border-slate-900/10">
-                <td className="py-1.5 pr-3 text-slate-500">{shortTs(t.exit_ts)}</td>
-                <td className="pr-3 text-slate-600">{t.symbol} <span className="text-slate-500">{t.timeframe}</span></td>
+              <tr key={i} className="border-t border-white/10">
+                <td className="py-1.5 pr-3 text-[#5b6b82]">{shortTs(t.exit_ts)}</td>
+                <td className="pr-3 text-[#8b98ac]">{t.symbol} <span className="text-[#5b6b82]">{t.timeframe}</span></td>
                 <td className="pr-3"><SignalBadge signal={t.direction} /></td>
-                <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-emerald-600" : "text-rose-600"}`}>{fmtUSD(t.pnl)}</td>
-                <td className="text-slate-500">{t.exit_reason}</td>
+                <td className={`pr-3 text-right font-semibold ${toneFor(t.pnl) === "pos" ? "text-[#00e676]" : "text-[#ff5252]"}`}>{fmtUSD(t.pnl)}</td>
+                <td className="text-[#5b6b82]">{t.exit_reason}</td>
               </tr>
             ))}</tbody>
           </table></div>

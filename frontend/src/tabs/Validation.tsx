@@ -17,8 +17,8 @@ function verdictTone(v: string): "pos" | "neg" | "neutral" {
 
 function MetricRow({ label, is, oos, fmt }: { label: string; is: any; oos: any; fmt: (v: any) => string }) {
   return (
-    <tr className="border-t border-slate-900/10">
-      <td className="py-1.5 pr-2 text-slate-500">{label}</td>
+    <tr className="border-t border-white/10">
+      <td className="py-1.5 pr-2 text-[#5b6b82]">{label}</td>
       <td className="py-1.5 pr-2 text-right font-mono">{fmt(is)}</td>
       <td className="py-1.5 text-right font-mono">{fmt(oos)}</td>
     </tr>
@@ -111,7 +111,7 @@ export default function Validation() {
       {error && <ErrorBox message={error} />}
 
       <Card title="IS / OOS — le passé prédit-il l'avenir ?">
-        <p className="mb-3 text-sm text-slate-500">
+        <p className="mb-3 text-sm text-[#5b6b82]">
           Découpe l'historique en deux : optimisation de la grille sur la partie IS,
           évaluation des meilleurs paramètres sur la partie OOS (jamais vue).
         </p>
@@ -146,7 +146,7 @@ export default function Validation() {
           <div className="mt-4">
             <Stat label="Verdict" value={dg.verdict.replace(/_/g, " ")} tone={verdictTone(dg.verdict)} />
             <table className="mt-2 w-full text-sm">
-              <thead><tr className="text-left text-slate-500">
+              <thead><tr className="text-left text-[#5b6b82]">
                 <th className="py-1 pr-2 font-medium">Métrique</th>
                 <th className="py-1 pr-2 text-right font-medium">IS (optimisé)</th>
                 <th className="py-1 text-right font-medium">OOS (jamais vu)</th>
@@ -160,7 +160,7 @@ export default function Validation() {
                 <MetricRow label="Win rate" is={isoRes.is.metrics.win_rate} oos={isoRes.oos.metrics.win_rate} fmt={(v) => fmtRate(v)} />
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-[#5b6b82]">
               Coupure : {shortTs(isoRes.split_ts)} — paramètres retenus : {JSON.stringify(isoRes.params)}
             </p>
           </div>
@@ -168,7 +168,7 @@ export default function Validation() {
       </Card>
 
       <Card title="Walk-forward — robustesse dans le temps">
-        <p className="mb-3 text-sm text-slate-500">
+        <p className="mb-3 text-sm text-[#5b6b82]">
           Fenêtre d'optimisation roulante : à chaque pli, la grille est optimisée sur
           le TRAIN puis évaluée sur le TEST suivant. Le TEST ne sert jamais à choisir.
         </p>
@@ -190,7 +190,7 @@ export default function Validation() {
               <Stat label="Rendement composé" value={fmtPct(agg.compounded_test_return)} tone={toneFor(agg.compounded_test_return)} />
             </div>
             <table className="mt-3 w-full text-sm">
-              <thead><tr className="text-left text-slate-500">
+              <thead><tr className="text-left text-[#5b6b82]">
                 <th className="py-1 pr-2 font-medium">Pli</th>
                 <th className="py-1 pr-2 font-medium">Test</th>
                 <th className="py-1 pr-2 font-medium">Params (train)</th>
@@ -199,9 +199,9 @@ export default function Validation() {
               </tr></thead>
               <tbody>
                 {wfRes.folds.map((f: any, i: number) => (
-                  <tr key={i} className="border-t border-slate-900/10">
+                  <tr key={i} className="border-t border-white/10">
                     <td className="py-1.5 pr-2">{i + 1}</td>
-                    <td className="py-1.5 pr-2 text-slate-500">{shortTs(f.test_start)} → {shortTs(f.test_end)}</td>
+                    <td className="py-1.5 pr-2 text-[#5b6b82]">{shortTs(f.test_start)} → {shortTs(f.test_end)}</td>
                     <td className="py-1.5 pr-2 font-mono text-xs">
                       ema {f.best_params.ema_fast}/{f.best_params.ema_slow}, rsi {f.best_params.rsi_buy}/{f.best_params.rsi_sell}
                     </td>
@@ -217,10 +217,10 @@ export default function Validation() {
 
       <Card title="Historique des validations">
         {history.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucune validation pour l'instant.</p>
+          <p className="text-sm text-[#5b6b82]">Aucune validation pour l'instant.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-slate-500">
+            <thead><tr className="text-left text-[#5b6b82]">
               <th className="py-1 pr-2 font-medium">Date</th>
               <th className="py-1 pr-2 font-medium">Type</th>
               <th className="py-1 pr-2 font-medium">Symbole</th>
@@ -228,15 +228,15 @@ export default function Validation() {
             </tr></thead>
             <tbody>
               {history.map((h: any) => (
-                <tr key={h.id} className="border-t border-slate-900/10">
-                  <td className="py-1.5 pr-2 text-slate-500">{shortTs(h.created_at)}</td>
+                <tr key={h.id} className="border-t border-white/10">
+                  <td className="py-1.5 pr-2 text-[#5b6b82]">{shortTs(h.created_at)}</td>
                   <td className="py-1.5 pr-2">
-                    <button className="text-blue-400 hover:underline" onClick={() => open(h.id)}>
+                    <button className="text-[#8b98ac] hover:underline" onClick={() => open(h.id)}>
                       {h.kind === "is_oos" ? "IS/OOS" : "Walk-forward"}
                     </button>
                   </td>
                   <td className="py-1.5 pr-2 font-mono text-xs">{h.symbol} {h.timeframe}</td>
-                  <td className="py-1.5 text-xs text-slate-600">
+                  <td className="py-1.5 text-xs text-[#8b98ac]">
                     {h.kind === "is_oos"
                       ? `verdict : ${String(h.summary?.verdict ?? "—").replace(/_/g, " ")}`
                       : `${h.summary?.profitable_folds ?? "—"} plis profitables, Sharpe moyen ${h.summary?.avg_test_sharpe ?? "—"}`}

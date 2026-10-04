@@ -20,7 +20,7 @@ function Dot({ ok }: { ok: boolean }) {
 }
 
 const LEVEL_STYLE: Record<string, string> = {
-  INFO: "text-sky-600", WARNING: "text-amber-600", ERROR: "text-rose-600", CRITICAL: "text-rose-700 font-bold",
+  INFO: "text-[#8b98ac]", WARNING: "text-[#ffb300]", ERROR: "text-[#ff5252]", CRITICAL: "text-[#ff5252] font-bold",
 };
 
 export default function System() {
@@ -60,14 +60,14 @@ export default function System() {
       </div>
 
       <Card title="Journal d'événements">
-        {events.length === 0 && <p className="text-sm text-slate-500">Aucun événement.</p>}
+        {events.length === 0 && <p className="text-sm text-[#5b6b82]">Aucun événement.</p>}
         <div className="max-h-[500px] space-y-1 overflow-y-auto">
           {events.map((e, i) => (
             <div key={i} className="flex items-start gap-3 rounded glass-deep px-3 py-1.5 text-sm">
-              <span className="whitespace-nowrap text-slate-500">{shortTs(e.ts)}</span>
-              <span className={`w-20 shrink-0 font-semibold ${LEVEL_STYLE[e.level] ?? "text-slate-500"}`}>{e.level}</span>
-              <span className="w-36 shrink-0 text-slate-500">{e.event}</span>
-              <span className="text-slate-600">{e.message}</span>
+              <span className="whitespace-nowrap text-[#5b6b82]">{shortTs(e.ts)}</span>
+              <span className={`w-20 shrink-0 font-semibold ${LEVEL_STYLE[e.level] ?? "text-[#5b6b82]"}`}>{e.level}</span>
+              <span className="w-36 shrink-0 text-[#5b6b82]">{e.event}</span>
+              <span className="text-[#8b98ac]">{e.message}</span>
             </div>
           ))}
         </div>

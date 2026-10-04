@@ -57,19 +57,19 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title={`Courbe du capital — dernier backtest${btMeta ? ` (${btMeta})` : ""}`} className="lg:col-span-2">
           {curve.length
-            ? <LineChart data={curve} color="#2563eb" formatY={(v) => "$" + v.toFixed(0)} />
-            : <p className="text-sm text-slate-500">Aucun backtest pour l'instant — onglet Backtests.</p>}
-          <p className="mt-2 text-xs text-slate-500">Backtest ≠ garantie de performance future.</p>
+            ? <LineChart data={curve} color="#00e676" formatY={(v) => "$" + v.toFixed(0)} />
+            : <p className="text-sm text-[#5b6b82]">Aucun backtest pour l'instant — onglet Backtests.</p>}
+          <p className="mt-2 text-xs text-[#5b6b82]">Backtest ≠ garantie de performance future.</p>
         </Card>
         <Card title="Derniers signaux (paper)">
-          {signals.length === 0 && <p className="text-sm text-slate-500">Aucun signal — le scheduler génère les signaux toutes les 15 min.</p>}
+          {signals.length === 0 && <p className="text-sm text-[#5b6b82]">Aucun signal — le scheduler génère les signaux toutes les 15 min.</p>}
           <div className="space-y-2">
             {signals.map((s, i) => (
               <div key={i} className="glass-deep flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 text-sm">
-                <span className="text-slate-500">{shortTs(s.ts)}</span>
-                <span className="text-slate-600">{s.symbol} <span className="text-slate-500">{s.timeframe}</span></span>
+                <span className="text-[#5b6b82]">{shortTs(s.ts)}</span>
+                <span className="text-[#8b98ac]">{s.symbol} <span className="text-[#5b6b82]">{s.timeframe}</span></span>
                 <SignalBadge signal={s.signal} />
-                <span className="text-slate-500">${s.price.toFixed(2)}</span>
+                <span className="text-[#5b6b82]">${s.price.toFixed(2)}</span>
               </div>
             ))}
           </div>
