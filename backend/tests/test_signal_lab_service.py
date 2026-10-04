@@ -1,6 +1,9 @@
 
 """Tests service Signal Lab : déduplication 1 signal / bougie (FakeConn)."""
 
+import uuid
+from datetime import datetime, timezone
+
 
 def test_needs_generation_pure():
     from datetime import datetime, timezone
@@ -37,14 +40,16 @@ def _rows(n, drift, vol, seed, start):
     ]
 
 
-def _fake_conn(rows, state):
-    """Fausse connexion : ORDER BY ts DESC + suivi de candle_ts stocké."""
-    import uuid
-    from datetime import datetime, timezone
+def _fake_conn(rows_by_symbol, state):
+    """Fausse connexion : ORDER BY ts DESC + filtre symbole + suivi candle_ts.
+
+    rows_by_symbol : {"BTCUSDT": [lignes...]} — comme market_data réel.
+    """
 
     class FakeCursor:
         def __init__(self):
             self._one = None
+            self._rows = []
 
         def __enter__(self):
             return self
@@ -53,7 +58,10 @@ def _fake_conn(rows, state):
             return False
 
         def execute(self, q, p=None):
-            if "MAX(candle_ts)" in q:
+            if "FROM market_data" in q:
+                # WHERE symbol = %s -> p[0] ; ORDER BY ts DESC
+                self._rows = list(reversed(rows_by_symbol.get(p[0], [])))
+            elif "MAX(candle_ts)" in q:
                 self._one = (state.get("candle_ts"),)
             elif "INSERT INTO signal_lab_signals" in q:
                 assert q.count("%s") == len(p), "placeholders != params"
@@ -63,7 +71,7 @@ def _fake_conn(rows, state):
             return self
 
         def fetchall(self):
-            return list(reversed(rows))  # comme ORDER BY ts DESC
+            return self._rows
 
         def fetchone(self):
             return self._one
@@ -93,7 +101,7 @@ def test_generate_and_store_dedup():
     start = datetime.now(timezone.utc) - timedelta(minutes=5 * 402)
     rows = _rows(400, 0.004, 0.004, 7, start)
     state = {}
-    conn = _fake_conn(rows, state)
+    conn = _fake_conn({"BTCUSDT": rows}, state)
 
     out1 = service.generate_and_store(conn, "BTCUSDT", "5m", "auto", 15.0, 1.5, 2.0)
     assert out1["skipped"] is None
@@ -116,7 +124,7 @@ def test_generate_and_store_new_candle():
     start = datetime.now(timezone.utc) - timedelta(minutes=5 * 402)
     rows = _rows(400, 0.004, 0.004, 7, start)
     state = {}
-    conn = _fake_conn(rows, state)
+    conn = _fake_conn({"BTCUSDT": rows}, state)
 
     out1 = service.generate_and_store(conn, "BTCUSDT", "5m", "auto", 15.0, 1.5, 2.0)
     assert out1["stored"] is not None
@@ -138,8 +146,54 @@ def test_generate_and_store_neutral_not_stored():
 
     start = datetime.now(timezone.utc) - timedelta(minutes=5 * 402)
     rows = _rows(400, 0.0, 0.001, 0, start)
-    out = service.generate_and_store(_fake_conn(rows, {}), "BTCUSDT", "5m",
+    out = service.generate_and_store(_fake_conn({"BTCUSDT": rows}, {}), "BTCUSDT", "5m",
                                      "auto", 15.0, 1.5, 2.0)
     assert out["signal"]["direction"] == "NEUTRAL"
     assert out["skipped"] == "neutral"
     assert out["stored"] is None
+
+
+def test_fetch_closed_candles_normalizes_symbol():
+    """'btc/usdt' (format .env) trouve les bougies stockées 'BTCUSDT'.
+
+    Régression 04/10 : l'auto-job lisait MARKET_DATA_SYMBOLS="BTC/USDT,...",
+    la requête WHERE symbol='BTC/USDT' trouvait 0 bougie alors que le sync
+    stocke en format normalisé 'BTCUSDT' -> SIGNAL_SKIP "0 < 230".
+    """
+    from datetime import timedelta
+
+    from app.signal_lab import service
+
+    start = datetime.now(timezone.utc) - timedelta(minutes=5 * 402)
+    rows = _rows(400, 0.004, 0.004, 7, start)
+    conn = _fake_conn({"BTCUSDT": rows}, {})
+
+    data = service.fetch_closed_candles(conn, "btc/usdt", "5m")
+    assert data["symbol"] == "BTCUSDT"
+    assert data["n"] == 400
+
+    # le format déjà normalisé continue de marcher
+    data2 = service.fetch_closed_candles(conn, "BTCUSDT", "5m")
+    assert data2["n"] == 400
+
+    # et un symbole vraiment inconnu lève bien InsufficientData
+    import pytest
+
+    with pytest.raises(service.InsufficientData):
+        service.fetch_closed_candles(conn, "DOGEUSDT", "5m")
+
+
+def test_generate_and_store_with_slash_symbol():
+    """generate_and_store accepte 'BTC/USDT' et stocke sous 'BTCUSDT'."""
+    from datetime import timedelta
+
+    from app.signal_lab import service
+
+    start = datetime.now(timezone.utc) - timedelta(minutes=5 * 402)
+    rows = _rows(400, 0.004, 0.004, 7, start)
+    state = {}
+    out = service.generate_and_store(
+        _fake_conn({"BTCUSDT": rows}, state), "BTC/USDT", "5m",
+        "auto", 15.0, 1.5, 2.0)
+    assert out["skipped"] is None
+    assert out["stored"] is not None

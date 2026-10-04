@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
+from app.market_data.binance import normalize_symbol
 from app.signal_lab import engine, features, store
 
 log = logging.getLogger("tradinglab")
@@ -36,7 +37,9 @@ def fetch_closed_candles(conn, symbol: str, timeframe: str,
             f"timeframe inconnu : {timeframe} "
             f"(choix : {sorted(store.TIMEFRAME_MINUTES)})"
         )
-    symbol = symbol.upper()
+    # Format natif Binance ('btc/usdt' -> 'BTCUSDT') : les bougies sont
+    # toujours stockées normalisées, quel que soit le format en .env.
+    symbol = normalize_symbol(symbol)
     tf_ms = store.TIMEFRAME_MINUTES[timeframe]
     cutoff = datetime.now(timezone.utc) - timedelta(milliseconds=tf_ms)
     with conn.cursor() as cur:
