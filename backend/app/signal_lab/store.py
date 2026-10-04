@@ -42,6 +42,8 @@ def insert_signal(
     symbol: str,
     timeframe: str,
     result: dict,
+    candle_ts=None,
+    origin: str = "manual",
 ) -> dict:
     """Stocke un signal BUY/SELL. Retourne id + resolve_at."""
     hm = horizon_minutes(timeframe)
@@ -51,8 +53,8 @@ def insert_signal(
             """INSERT INTO signal_lab_signals
                (symbol, timeframe, direction, score, total, factors, justification,
                 indicators, entry_price, stop_loss, take_profit, atr,
-                horizon_minutes, resolve_at)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                horizon_minutes, resolve_at, candle_ts, origin)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                RETURNING id, created_at""",
             (
                 symbol, timeframe, result["direction"], result["score"], result["total"],
@@ -60,15 +62,28 @@ def insert_signal(
                 psycopg.types.json.Json(result["justification"]),
                 psycopg.types.json.Json(result["indicators"]),
                 result["entry"], result["stop_loss"], result["take_profit"],
-                result["atr"], hm, resolve_at,
+                result["atr"], hm, resolve_at, candle_ts, origin,
             ),
         )
         row = cur.fetchone()
     conn.commit()
-    log.info("Signal Lab %s %s %s score=%s", symbol, timeframe,
+    log.info("Signal Lab [%s] %s %s %s score=%s", origin, symbol, timeframe,
              result["direction"], result["score"], extra={"event": "SIGNAL_GENERATED"})
     return {"id": str(row[0]), "created_at": row[1].isoformat(),
             "resolve_at": resolve_at.isoformat()}
+
+
+def latest_signal_candle_ts(conn: psycopg.Connection,
+                            symbol: str, timeframe: str):
+    """Ts de la bougie la plus récente déjà scorée (None si aucun signal)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT MAX(candle_ts) FROM signal_lab_signals
+               WHERE symbol = %s AND timeframe = %s""",
+            (symbol, timeframe),
+        )
+        row = cur.fetchone()
+    return row[0] if row else None
 
 
 def list_signals(
@@ -93,7 +108,7 @@ def list_signals(
             f"""SELECT id, created_at, symbol, timeframe, direction, score, total,
                        factors, justification, indicators, entry_price, stop_loss,
                        take_profit, atr, horizon_minutes, resolve_at, outcome,
-                       exit_price, sl_hit, tp_hit, resolved_at
+                       exit_price, sl_hit, tp_hit, resolved_at, candle_ts, origin
                 FROM signal_lab_signals {clause}
                 ORDER BY created_at DESC LIMIT %s OFFSET %s""",
             (*params, limit, offset),

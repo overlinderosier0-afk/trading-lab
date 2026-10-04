@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     signal_lab_direction_threshold: float = 15.0
     signal_lab_sl_atr_mult: float = 1.5
     signal_lab_tp_atr_mult: float = 2.0
+    # Auto-génération : 1 signal par bougie clôturée (paires suivies ×
+    # signal_lab_auto_timeframes), toutes les 5 min. Désactivé par défaut :
+    # activation explicite via SIGNAL_LAB_AUTO_ENABLED=true.
+    # Ne génère que du suivi (aucune position) ; la résolution reste
+    # assurée par le job signal_lab_resolve_job.
+    signal_lab_auto_enabled: bool = False
+    signal_lab_auto_timeframes: str = "5m"
 
 
 settings = Settings()

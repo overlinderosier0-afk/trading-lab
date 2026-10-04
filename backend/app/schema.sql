@@ -152,3 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_slab_resolve
     ON signal_lab_signals (outcome, resolve_at);
 CREATE INDEX IF NOT EXISTS idx_slab_sym_tf
     ON signal_lab_signals (symbol, timeframe, created_at DESC);
+
+-- Signal Lab : auto-génération (04/10). Colonnes ajoutées de façon idempotente.
+ALTER TABLE signal_lab_signals
+    ADD COLUMN IF NOT EXISTS candle_ts TIMESTAMPTZ;
+ALTER TABLE signal_lab_signals
+    ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'manual';

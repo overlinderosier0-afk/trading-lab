@@ -4,6 +4,9 @@
 - paper_job (15 min) : cycle de paper trading — seulement si activé (défaut : off).
 - signal_lab_resolve_job (5 min) : résolution des signaux Signal Lab échus
   (mesure win/loss uniquement — ne génère rien, n'ouvre aucune position).
+- signal_lab_auto_job (5 min) : auto-génération d'1 signal par bougie clôturée
+  sur les paires configurées — seulement si SIGNAL_LAB_AUTO_ENABLED=true
+  (mesure uniquement, aucune position).
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from app import db
 from app.market_data import sync as market_sync
 from app.paper_trading import engine as paper_engine
 from app.risk import limits
+from app.signal_lab import service as signal_lab_service
 from app.signal_lab import store as signal_lab_store
 
 log = logging.getLogger("tradinglab")
@@ -78,6 +82,49 @@ def signal_lab_resolve_job() -> None:
                          f"signal_lab_resolve_job : {type(exc).__name__}", {})
 
 
+def signal_lab_auto_job() -> None:
+    """Auto-génération : 1 signal par bougie clôturée (paires configurées).
+
+    Mesure uniquement : ne génère aucun ordre, n'ouvre aucune position.
+    La déduplication (1 signal / bougie) est assurée par le service.
+    """
+    try:
+        from app.config import settings
+        if not (settings.signal_lab_enabled and settings.signal_lab_auto_enabled):
+            return
+        syms = [s.strip().upper() for s in settings.market_data_symbols.split(",")
+                if s.strip()]
+        tfs = [t.strip() for t in settings.signal_lab_auto_timeframes.split(",")
+               if t.strip()]
+        for symbol in syms:
+            for timeframe in tfs:
+                try:
+                    with db.get_conn() as conn:
+                        # Rattrapage incrémental : la dernière bougie doit être fraîche.
+                        market_sync.sync_symbol(conn, symbol, timeframe,
+                                                lookback_days=1)
+                        r = signal_lab_service.generate_and_store(
+                            conn, symbol, timeframe, origin="auto",
+                            direction_threshold=settings.signal_lab_direction_threshold,
+                            sl_mult=settings.signal_lab_sl_atr_mult,
+                            tp_mult=settings.signal_lab_tp_atr_mult)
+                    if r["stored"]:
+                        log.info("Signal Lab AUTO %s %s %s score=%s", symbol,
+                                 timeframe, r["signal"]["direction"],
+                                 r["signal"]["score"],
+                                 extra={"event": "SIGNAL_GENERATED"})
+                except signal_lab_service.InsufficientData as exc:
+                    log.warning("signal_lab auto %s %s : %s", symbol, timeframe,
+                                exc, extra={"event": "SIGNAL_SKIP"})
+                except Exception as exc:
+                    limits.log_event("ERROR", "SYSTEM_ERROR",
+                                     f"signal_lab_auto {symbol} {timeframe} : "
+                                     f"{type(exc).__name__}", {})
+    except Exception as exc:
+        limits.log_event("ERROR", "SYSTEM_ERROR",
+                         f"signal_lab_auto_job : {type(exc).__name__}", {})
+
+
 def start() -> None:
     global _scheduler
     if _scheduler and _scheduler.running:
@@ -89,6 +136,8 @@ def start() -> None:
                        max_instances=1, coalesce=True, id="paper_job")
     _scheduler.add_job(signal_lab_resolve_job, "interval", minutes=5,
                        max_instances=1, coalesce=True, id="signal_lab_resolve_job")
+    _scheduler.add_job(signal_lab_auto_job, "interval", minutes=5,
+                       max_instances=1, coalesce=True, id="signal_lab_auto_job")
     _scheduler.start()
     log.info("Scheduler démarré (sync 30min, paper 15min, signal-lab 5min)",
              extra={"event": "SCHEDULER_START"})

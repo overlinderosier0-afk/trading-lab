@@ -1,72 +1,25 @@
 """Endpoints Signal Lab : génération manuelle de signaux + suivi honnête.
 
 AUCUNE exécution : générer un signal ne fait qu'analyser et enregistrer.
-Le scheduler ne fait que résoudre les signaux échus (win/loss mesuré).
+Le scheduler ne fait que résoudre les signaux échus (win/loss mesuré) et,
+si activé, générer automatiquement un signal par bougie clôturée.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
-import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app import db
 from app.config import settings
-from app.signal_lab import engine, features, store
+from app.signal_lab import service, store
 
 router = APIRouter(tags=["signal-lab"])
-
-WARMUP = 400  # bougies lues (230 mini pour EMA200 + marge)
 
 
 class GenerateRequest(BaseModel):
     symbol: str = "BTCUSDT"
     timeframe: str = "1h"
-
-
-def _closed_candles(symbol: str, timeframe: str) -> dict:
-    """Bougies CLOSES uniquement (bougie en formation exclue — anti look-ahead)."""
-    if timeframe not in store.TIMEFRAME_MINUTES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"timeframe inconnu : {timeframe} "
-                   f"(choix : {sorted(store.TIMEFRAME_MINUTES)})",
-        )
-    symbol = symbol.upper()
-    tf_ms = store.TIMEFRAME_MINUTES[timeframe]
-    # Une bougie d'ouverture ts est close quand ts + durée <= maintenant.
-    cutoff = datetime.now(timezone.utc) - timedelta(milliseconds=tf_ms)
-    with db.get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT ts, open, high, low, close, volume FROM market_data
-                   WHERE symbol = %s AND timeframe = %s AND ts <= %s
-                   ORDER BY ts DESC LIMIT %s""",
-                (symbol, timeframe, cutoff, WARMUP),
-            )
-            rows = cur.fetchall()
-    if len(rows) < features.MIN_CANDLES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"pas assez de bougies closes pour {symbol} {timeframe} : "
-                   f"{len(rows)} < {features.MIN_CANDLES} — lance POST /api/market/sync",
-        )
-    rows = list(reversed(rows))
-    return {
-        "symbol": symbol,
-        "timeframe": timeframe,
-        "last_ts": rows[-1][0].isoformat(),
-        "n": len(rows),
-        "candles": {
-            "open": np.array([r[1] for r in rows], dtype=float),
-            "high": np.array([r[2] for r in rows], dtype=float),
-            "low": np.array([r[3] for r in rows], dtype=float),
-            "close": np.array([r[4] for r in rows], dtype=float),
-            "volume": np.array([r[5] for r in rows], dtype=float),
-        },
-    }
 
 
 @router.get("/api/signal-lab/universe")
@@ -82,32 +35,30 @@ def generate(req: GenerateRequest) -> dict:
 
     BUY/SELL sont enregistrés et résolus automatiquement après l'horizon
     (3 bougies). NEUTRAL n'est pas enregistré : le modèle dit "je ne sais pas".
+    Si la dernière bougie a déjà été scorée, aucun doublon n'est créé.
     """
     if not settings.signal_lab_enabled:
         raise HTTPException(status_code=403, detail="Signal Lab désactivé")
-    data = _closed_candles(req.symbol, req.timeframe)
-    c = data["candles"]
     try:
-        feats = features.compute_features(c["open"], c["high"], c["low"], c["close"], c["volume"])
+        with db.get_conn() as conn:
+            out = service.generate_and_store(
+                conn, req.symbol, req.timeframe, origin="manual",
+                direction_threshold=settings.signal_lab_direction_threshold,
+                sl_mult=settings.signal_lab_sl_atr_mult,
+                tp_mult=settings.signal_lab_tp_atr_mult,
+            )
+    except service.InsufficientData as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    result = engine.generate_signal(
-        feats,
-        direction_threshold=settings.signal_lab_direction_threshold,
-        sl_mult=settings.signal_lab_sl_atr_mult,
-        tp_mult=settings.signal_lab_tp_atr_mult,
-    )
-    stored = None
-    if result["direction"] in ("BUY", "SELL"):
-        with db.get_conn() as conn:
-            stored = store.insert_signal(conn, data["symbol"], data["timeframe"], result)
     return {
-        "symbol": data["symbol"],
-        "timeframe": data["timeframe"],
-        "data_last_ts": data["last_ts"],
-        "candles_used": data["n"],
-        "signal": result,
-        "stored": stored,
+        "symbol": req.symbol.upper(),
+        "timeframe": req.timeframe,
+        "data_last_ts": out["candle_ts"],
+        "candles_used": out["candles_used"],
+        "signal": out["signal"],
+        "stored": out["stored"],
+        "duplicate": out["skipped"] == "duplicate",
         "disclaimer": "Score /100 = force du modèle, pas une probabilité de gain. "
                       "Aucune exécution réelle — analyse et suivi uniquement.",
     }

@@ -21,6 +21,7 @@ interface GenerateResponse {
   symbol: string; timeframe: string; data_last_ts: string; candles_used: number;
   signal: SignalResult;
   stored: { id: string; created_at: string; resolve_at: string } | null;
+  duplicate: boolean;
   disclaimer: string;
 }
 
@@ -30,6 +31,7 @@ interface LabSignal {
   entry_price: number; stop_loss: number; take_profit: number;
   horizon_minutes: number; resolve_at: string; outcome: string;
   exit_price: number | null; sl_hit: boolean | null; tp_hit: boolean | null;
+  origin: string; candle_ts: string | null;
 }
 
 interface StatsBucket { range: string; n: number; wins: number; win_rate: number | null }
@@ -40,6 +42,19 @@ interface Stats {
 }
 
 const FACTOR_ORDER = ["trend", "momentum", "price_action", "structure", "volatility"];
+
+function OriginBadge({ origin }: { origin: string }) {
+  const isAuto = origin === "auto";
+  return (
+    <span className={`inline-block rounded-lg border px-2 py-0.5 text-xs font-semibold ${
+      isAuto
+        ? "bg-sky-600/10 text-sky-700 border-sky-600/30"
+        : "bg-slate-500/10 text-slate-500 border-slate-900/15"
+    }`}>
+      {isAuto ? "Auto" : "Manuel"}
+    </span>
+  );
+}
 
 function OutcomeBadge({ outcome }: { outcome: string }) {
   const map: Record<string, string> = {
@@ -148,6 +163,11 @@ export default function SignalLab() {
             Analyse uniquement — aucune exécution.
           </div>
         </div>
+        {gen?.duplicate && (
+          <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            Cette bougie a déjà été scorée — aucun doublon enregistré. Le signal affiché est identique au précédent.
+          </div>
+        )}
       </Card>
 
       {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={() => loadAll()} /> : (
@@ -268,6 +288,7 @@ export default function SignalLab() {
                           {s.exit_price !== null && <> → sortie {s.exit_price}</>}
                         </div>
                       </div>
+                      <OriginBadge origin={s.origin} />
                       <OutcomeBadge outcome={s.outcome} />
                     </div>
                   ))}
