@@ -107,7 +107,8 @@ CREATE TABLE IF NOT EXISTS system_state (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Validations persistées : IS/OOS + walk-forward (anti sur-optimisation)CREATE TABLE IF NOT EXISTS validation_runs (
+-- Validations persistées : IS/OOS + walk-forward (anti sur-optimisation)
+CREATE TABLE IF NOT EXISTS validation_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     kind TEXT NOT NULL,                    -- 'is_oos' | 'walk_forward'
