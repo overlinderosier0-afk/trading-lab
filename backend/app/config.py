@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     take_profit_pct: float = 0.0
     position_pct: float = 1.0
     allow_short: bool = True
+    # Signal Lab : génération manuelle de signaux multi-facteurs (pas d'auto-trade).
+    # La résolution des signaux échus tourne toujours (toutes les 5 min) :
+    # elle ne fait que mesurer win/loss, jamais ouvrir de position.
+    signal_lab_enabled: bool = True
+    signal_lab_direction_threshold: float = 15.0
+    signal_lab_sl_atr_mult: float = 1.5
+    signal_lab_tp_atr_mult: float = 2.0
 
 
 settings = Settings()

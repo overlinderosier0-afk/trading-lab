@@ -2,6 +2,8 @@
 
 - sync_job (30 min) : données de marché incrémentales — toujours actif.
 - paper_job (15 min) : cycle de paper trading — seulement si activé (défaut : off).
+- signal_lab_resolve_job (5 min) : résolution des signaux Signal Lab échus
+  (mesure win/loss uniquement — ne génère rien, n'ouvre aucune position).
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from app import db
 from app.market_data import sync as market_sync
 from app.paper_trading import engine as paper_engine
 from app.risk import limits
+from app.signal_lab import store as signal_lab_store
 
 log = logging.getLogger("tradinglab")
 
@@ -56,6 +59,25 @@ def paper_job() -> None:
                          f"paper_job : {type(exc).__name__}", {})
 
 
+def signal_lab_resolve_job() -> None:
+    """Résolution des signaux Signal Lab échus (mesure win/loss uniquement).
+
+    Ne génère rien, n'ouvre aucune position : pure observation.
+    """
+    try:
+        from app.config import settings
+        if not settings.signal_lab_enabled:
+            return
+        with db.get_conn() as conn:
+            result = signal_lab_store.resolve_due_signals(conn)
+        if result["resolved"]:
+            log.info("signal_lab_resolve : %s résolus %s",
+                     result["resolved"], result, extra={"event": "SIGNAL_RESOLVED"})
+    except Exception as exc:
+        limits.log_event("ERROR", "SYSTEM_ERROR",
+                         f"signal_lab_resolve_job : {type(exc).__name__}", {})
+
+
 def start() -> None:
     global _scheduler
     if _scheduler and _scheduler.running:
@@ -65,8 +87,10 @@ def start() -> None:
                        max_instances=1, coalesce=True, id="sync_job")
     _scheduler.add_job(paper_job, "interval", minutes=15,
                        max_instances=1, coalesce=True, id="paper_job")
+    _scheduler.add_job(signal_lab_resolve_job, "interval", minutes=5,
+                       max_instances=1, coalesce=True, id="signal_lab_resolve_job")
     _scheduler.start()
-    log.info("Scheduler démarré (sync 30min, paper 15min)",
+    log.info("Scheduler démarré (sync 30min, paper 15min, signal-lab 5min)",
              extra={"event": "SCHEDULER_START"})
 
 

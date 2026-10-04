@@ -4,6 +4,7 @@ import Backtests from "./tabs/Backtests";
 import Validation from "./tabs/Validation";
 import Paper from "./tabs/Paper";
 import Market from "./tabs/Market";
+import SignalLab from "./tabs/SignalLab";
 import System from "./tabs/System";
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: "backtests", label: "Backtests" },
   { id: "validation", label: "Validation" },
   { id: "paper", label: "Paper Trading" },
+  { id: "signallab", label: "Signal Lab" },
   { id: "market", label: "Marché" },
   { id: "system", label: "Système" },
 ];
@@ -49,6 +51,7 @@ export default function App() {
         {tab === "backtests" && <Backtests />}
         {tab === "validation" && <Validation />}
         {tab === "paper" && <Paper />}
+        {tab === "signallab" && <SignalLab />}
         {tab === "market" && <Market />}
         {tab === "system" && <System />}
       </main>

@@ -25,6 +25,7 @@ from app import db, scheduler
 from app.api import backtests as backtests_api
 from app.api import market as market_api
 from app.api import paper as paper_api
+from app.api import signal_lab as signal_lab_api
 from app.api import strategies as strategies_api
 from app.api import system as system_api
 from app.api import validation as validation_api
@@ -88,6 +89,7 @@ app.include_router(market_api.router)
 app.include_router(strategies_api.router)
 app.include_router(backtests_api.router)
 app.include_router(paper_api.router)
+app.include_router(signal_lab_api.router)
 app.include_router(system_api.router)
 app.include_router(validation_api.router)
 

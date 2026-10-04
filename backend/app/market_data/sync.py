@@ -14,7 +14,7 @@ from app.market_data import store
 
 log = logging.getLogger("tradinglab")
 
-TIMEFRAME_MS = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+TIMEFRAME_MS = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
 REQUEST_PAUSE_S = 0.2  # politesse envers l'API (limites très généreuses par ailleurs)
 
 
