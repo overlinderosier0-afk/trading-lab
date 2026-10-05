@@ -46,25 +46,34 @@ def conn():
 
 
 def _insert_signal(conn, **kw):
-    """Ligne signal minimale, façon legacy (colonnes historiques)."""
+    """Ligne signal minimale, façon legacy (colonnes historiques).
+
+    Par défaut created_at = entry_timestamp + 5 s (signal frais, évaluable) ;
+    passer created_at explicitement pour simuler un retard d'entrée.
+    """
     d = dict(symbol="BTCUSDT", timeframe="5m", direction="BUY", score=55,
              total=10.0, entry_price=100.0,
              candle_ts=T0, origin="auto")
     d.update(kw)
+    if d.get("created_at") is None:
+        ets = d.get("entry_timestamp")
+        d["created_at"] = (ets + timedelta(seconds=5) if ets
+                           else datetime.now(UTC))
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO signal_lab_signals
                (symbol, timeframe, direction, score, total, factors,
                 justification, indicators, entry_price, stop_loss,
                 take_profit, atr, horizon_minutes, resolve_at,
-                candle_ts, origin, entry_timestamp, entry_price_source)
+                candle_ts, origin, entry_timestamp, entry_price_source,
+                created_at)
                VALUES (%s,%s,%s,%s,%s,'{}','{}','{}',%s,99.0,101.0,1.0,
-                       15, %s, %s, %s, %s, %s)
+                       15, %s, %s, %s, %s, %s, %s)
                RETURNING id""",
             (d["symbol"], d["timeframe"], d["direction"], d["score"],
              d["total"], d["entry_price"], T0 + timedelta(minutes=15),
              d["candle_ts"], d["origin"], d.get("entry_timestamp"),
-             d.get("entry_price_source")),
+             d.get("entry_price_source"), d["created_at"]),
         )
         sid = cur.fetchone()[0]
     conn.commit()
@@ -370,3 +379,118 @@ def test_worker_two_cycles_no_duplication(conn):
         first = cur.fetchone()[0]
     # Pas de recalcul silencieux : le résultat est inchangé.
     assert first is not None
+
+
+# ------------------------------------------------------- garde-fou entry_lag
+def _lagged_signal(conn, lag_s=120.0, **kw):
+    """Signal BUY dont le retard d'entrée dépasse le seuil (défaut 60 s)."""
+    now = datetime.now(UTC)
+    d = dict(entry_timestamp=now - timedelta(seconds=lag_s),
+             entry_price_source="candle_close", created_at=now)
+    d.update(kw)
+    return _insert_signal(conn, **d)
+
+
+@needs_pg
+def test_worker_creates_no_pending_for_lagged_signal(conn):
+    _lagged_signal(conn, lag_s=120.0)
+    fresh = _make_evaluable(conn, datetime.now(UTC) - timedelta(seconds=5))
+    n = eval_store.ensure_pending_evaluations(conn, [5])
+    assert n == 1
+    with conn.cursor() as cur:
+        cur.execute("SELECT signal_id FROM signal_lab_evaluations")
+        assert cur.fetchone()[0] == fresh
+
+
+@needs_pg
+def test_worker_ignores_due_pending_of_lagged_signal(conn):
+    # Une PENDING existante d'un signal lagué : ni complétée, ni modifiée.
+    now = datetime.now(UTC)
+    entry_ts = now - timedelta(seconds=120)
+    sid = _lagged_signal(conn, lag_s=120.0)
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO signal_lab_evaluations
+               (signal_id, horizon_minutes, entry_price, due_at, status)
+               VALUES (%s, 5, 100.0, %s, 'PENDING') RETURNING id""",
+            (sid, entry_ts + timedelta(minutes=5)))
+        eid = cur.fetchone()[0]
+    conn.commit()
+    klines = _candles_1m(entry_ts, 10, 100.0)
+    res = eval_worker.run_cycle(
+        conn, klines_fetcher=lambda s, a, b: klines,
+        now=now, horizons=(5,), batch=10)
+    assert res["completed"] == 0 and res["transient"] == 0
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, attempt_count, last_error "
+                    "FROM signal_lab_evaluations WHERE id = %s", (eid,))
+        st, att, err = cur.fetchone()
+    assert (st, att, err) == ("PENDING", 0, None)
+
+
+@needs_pg
+def test_count_by_status_counts_lagged_as_unavailable(conn):
+    now = datetime.now(UTC)
+    _lagged_signal(conn, lag_s=120.0)                       # entry_lag
+    _insert_signal(conn, entry_timestamp=now - timedelta(seconds=5),
+                   entry_price_source="candle_close",
+                   created_at=now)                          # évaluable
+    _insert_signal(conn, entry_timestamp=None, candle_ts=None)  # non dérivable
+    counts = eval_store.count_by_status(conn)
+    assert counts["UNAVAILABLE"] == 2
+
+
+@needs_pg
+def test_read_path_excludes_completed_of_lagged_signal(conn):
+    # Une COMPLETED existante sur signal lagué : exclue des stats à la
+    # lecture (ligne non modifiée), signal compté en unavailable.
+    from app.signal_lab import evaluation as ev
+    now = datetime.now(UTC)
+    sid = _lagged_signal(conn, lag_s=120.0)
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO signal_lab_evaluations
+               (signal_id, horizon_minutes, entry_price, exit_price,
+                exit_timestamp, return_pct, direction_correct,
+                mfe_pct, mae_pct, status, evaluated_at, due_at)
+               VALUES (%s, 5, 100.0, 101.0, %s, 1.0, true, 1.0, -0.5,
+                       'COMPLETED', %s, %s)""",
+            (sid, now, now, now - timedelta(minutes=115)))
+    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute("SELECT direction, created_at, entry_timestamp "
+                    "FROM signal_lab_signals WHERE id = %s", (sid,))
+        cols = [d[0] for d in cur.description]
+        sig = dict(zip(cols, cur.fetchone()))
+    # La fonction partagée dit non évaluable…
+    assert ev.signal_evaluability(sig, 60.0) == (False, "entry_lag")
+    # …donc count_by_status le compte en unavailable…
+    assert eval_store.count_by_status(conn)["UNAVAILABLE"] == 1
+    # …et la ligne COMPLETED reste intacte en base (garde-fou à la lecture).
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, return_pct FROM signal_lab_evaluations")
+        assert cur.fetchone() == ("COMPLETED", 1.0)
+
+
+@needs_pg
+def test_worker_and_api_agree_on_evaluability(conn):
+    # Même signal → même verdict côté worker et côté fonction partagée
+    # (l'API utilise exactement cette fonction).
+    from app.signal_lab import evaluation as ev
+    now = datetime.now(UTC)
+    lagged = _lagged_signal(conn, lag_s=120.0)
+    fresh = _insert_signal(conn, entry_timestamp=now - timedelta(seconds=5),
+                           entry_price_source="candle_close", created_at=now)
+    n = eval_store.ensure_pending_evaluations(conn, [5])
+    assert n == 1  # worker : seul le signal frais donne un PENDING
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, direction, created_at, entry_timestamp "
+                    "FROM signal_lab_signals")
+        cols = [d[0] for d in cur.description]
+        verdicts = {str(r[0]): ev.signal_evaluability(dict(zip(cols, r)), 60.0)[0]
+                    for r in cur.fetchall()}
+    assert verdicts == {str(lagged): False, str(fresh): True}
+    with conn.cursor() as cur:
+        cur.execute("SELECT signal_id FROM signal_lab_evaluations")
+        pending_for = {str(r[0]) for r in cur.fetchall()}
+    assert pending_for == {str(fresh)} == {s for s, ok in verdicts.items() if ok}

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     signal_lab_eval_paper_stake_usdt: float = 100.0
     signal_lab_eval_max_attempts: int = 12
     signal_lab_eval_backoff_max_minutes: int = 30
+    # Retard d'entrée max (created_at − entry_timestamp) : au-delà, le signal
+    # n'est plus évaluable (une partie de la fenêtre précède sa création).
+    # Phase 0 (prod) : p95 des signaux auto = 36,1 s → défaut 60 s validé.
+    signal_lab_eval_max_entry_lag_seconds: float = 60.0
 
 
 settings = Settings()

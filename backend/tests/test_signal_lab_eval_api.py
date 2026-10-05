@@ -53,21 +53,24 @@ def client():
         c.execute(open(SCHEMA_PATH, encoding="utf-8").read())
         c.execute("TRUNCATE signal_lab_evaluations, signal_lab_signals")
         # 2 signaux évaluables, horizons 5/15/30/60.
+        # created_at = entry_timestamp + 10 s (retard d'entrée sous le seuil).
         for i, direction in enumerate(("BUY", "SELL")):
+            entry_ts = T0 - timedelta(minutes=90 - i) + timedelta(minutes=5)
             with c.cursor() as cur:
                 cur.execute(
                     """INSERT INTO signal_lab_signals
                        (symbol, timeframe, direction, score, total, factors,
                         justification, indicators, entry_price, stop_loss,
                         take_profit, atr, horizon_minutes, resolve_at,
-                        candle_ts, origin, entry_timestamp, entry_price_source)
+                        candle_ts, origin, entry_timestamp, entry_price_source,
+                        created_at)
                        VALUES ('BTCUSDT','5m',%s,60,5.0,'{}','{}','{}',
                                100.0, 99.0, 102.0, 1.0, 15,
-                               %s, %s, 'auto', %s, 'candle_close')
+                               %s, %s, 'auto', %s, 'candle_close', %s)
                        RETURNING id""",
                     (direction, T0 + timedelta(minutes=15),
                      T0 - timedelta(minutes=90 - i),
-                     T0 - timedelta(minutes=90 - i) + timedelta(minutes=5)),
+                     entry_ts, entry_ts + timedelta(seconds=10)),
                 )
                 sid = cur.fetchone()[0]
             eval_store.ensure_pending_evaluations(c, [5, 15, 30, 60])
@@ -147,3 +150,93 @@ def test_breakdown_tranches(client):
     # Les 2 signaux ont score 60 -> tranche 60-69.
     t = next(g for k, g in groups.items() if k == "60-69")
     assert t["n"] == 2
+
+
+# ------------------------------------------------------- garde-fou entry_lag
+@pytest.fixture()
+def client_with_lag():
+    """1 signal frais + COMPLETED, 1 signal lagué + COMPLETED (manuelle)."""
+    with psycopg.connect(TEST_DSN) as c:
+        c.execute(open(SCHEMA_PATH, encoding="utf-8").read())
+        c.execute("TRUNCATE signal_lab_evaluations, signal_lab_signals")
+        now = datetime.now(timezone.utc)
+        sids = {}
+        for name, lag_s in (("fresh", 5.0), ("lagged", 120.0)):
+            entry_ts = now - timedelta(seconds=lag_s)
+            with c.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO signal_lab_signals
+                       (symbol, timeframe, direction, score, total, factors,
+                        justification, indicators, entry_price, stop_loss,
+                        take_profit, atr, horizon_minutes, resolve_at,
+                        candle_ts, origin, entry_timestamp, entry_price_source,
+                        created_at)
+                       VALUES ('BTCUSDT','5m','BUY',60,5.0,'{}','{}','{}',
+                               100.0, 99.0, 102.0, 1.0, 15,
+                               %s, %s, 'auto', %s, 'candle_close', %s)
+                       RETURNING id""",
+                    (now, entry_ts - timedelta(minutes=5), entry_ts, now),
+                )
+                sid = cur.fetchone()[0]
+                cur.execute(
+                    """INSERT INTO signal_lab_evaluations
+                       (signal_id, horizon_minutes, entry_price, exit_price,
+                        exit_timestamp, return_pct, direction_correct,
+                        mfe_pct, mae_pct, status, evaluated_at, due_at)
+                       VALUES (%s, 5, 100.0, 101.0, %s, 1.0, true, 1.0, -0.5,
+                               'COMPLETED', %s, %s)""",
+                    (sid, now, now, entry_ts + timedelta(minutes=5)),
+                )
+                sids[name] = str(sid)
+        c.commit()
+    app = FastAPI()
+    app.include_router(signal_lab_eval.router)
+    return TestClient(app), sids
+
+
+@needs_pg
+def test_summary_excludes_lagged_and_exposes_threshold(client_with_lag):
+    client, _sids = client_with_lag
+    r = client.get("/api/signal-lab/eval/summary", params={"horizon": 5})
+    assert r.status_code == 200
+    block = r.json()["horizons"]["5"]
+    # La COMPLETED du signal lagué est exclue des stats à la lecture…
+    assert block["completed_signals"] == 1
+    assert block["wins"] == 1
+    # …le signal lagué est compté en unavailable, sans double comptage…
+    assert block["unavailable_signals"] == 1
+    assert block["total_signals"] == 2
+    # …et le seuil utilisé est exposé.
+    assert block["max_entry_lag_seconds"] == \
+        settings.signal_lab_eval_max_entry_lag_seconds == 60.0
+
+
+@needs_pg
+def test_signals_list_and_detail_expose_unavailable_reason(client_with_lag):
+    client, sids = client_with_lag
+    r = client.get("/api/signal-lab/eval/signals")
+    assert r.status_code == 200
+    by_id = {it["id"]: it for it in r.json()["items"]}
+    assert by_id[sids["fresh"]]["evaluation_state"] == "available"
+    assert by_id[sids["fresh"]]["unavailable_reason"] is None
+    assert by_id[sids["lagged"]]["evaluation_state"] == "unavailable"
+    assert by_id[sids["lagged"]]["unavailable_reason"] == "entry_lag"
+    r = client.get(f"/api/signal-lab/eval/signals/{sids['lagged']}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["evaluation_state"] == "unavailable"
+    assert body["unavailable_reason"] == "entry_lag"
+    # La ligne COMPLETED existe toujours en base (garde-fou à la lecture).
+    assert body["evaluations"][0]["status"] == "COMPLETED"
+
+
+@needs_pg
+def test_breakdown_exposes_threshold(client_with_lag):
+    client, _sids = client_with_lag
+    r = client.get("/api/signal-lab/eval/breakdown",
+                   params={"group_by": "horizon"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["max_entry_lag_seconds"] == 60.0
+    # Le signal lagué est exclu des stats groupées aussi.
+    assert body["groups"]["5"]["n"] == 1

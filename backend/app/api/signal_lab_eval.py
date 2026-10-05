@@ -103,22 +103,40 @@ def _filters(symbol=None, timeframe=None, direction=None, origin=None,
     return clauses, args
 
 
+def _max_lag_seconds() -> float:
+    return settings.signal_lab_eval_max_entry_lag_seconds
+
+
 def _completed_rows(conn, horizon, clauses, args) -> list[dict]:
+    """Évaluations COMPLETED d'un horizon, signaux évaluables uniquement.
+
+    Le garde-fou est appliqué À LA LECTURE : les lignes COMPLETED existantes
+    ne sont jamais modifiées, mais celles dont le signal est non évaluable
+    (evaluation.signal_evaluability) sont exclues des stats.
+    """
+    max_lag = _max_lag_seconds()
     with conn.cursor() as cur:
         cur.execute(
             f"""SELECT e.return_pct, e.direction_correct, e.mfe_pct, e.mae_pct,
-                       s.timeframe, s.score, s.symbol, s.direction, s.origin
+                       s.timeframe, s.score, s.symbol, s.direction, s.origin,
+                       s.created_at, s.entry_timestamp
                 FROM signal_lab_evaluations e
                 JOIN signal_lab_signals s ON s.id = e.signal_id
                 WHERE e.status = 'COMPLETED' AND e.horizon_minutes = %s
                 {"AND " + " AND ".join(clauses) if clauses else ""}""",
             [horizon] + args,
         )
-        return [{"return_pct": r[0], "direction_correct": r[1],
-                 "mfe_pct": r[2], "mae_pct": r[3], "timeframe": r[4],
-                 "score": r[5], "symbol": r[6], "direction": r[7],
-                 "origin": r[8]}
-                for r in cur.fetchall()]
+        rows = []
+        for r in cur.fetchall():
+            sig = {"direction": r[7], "created_at": r[9],
+                   "entry_timestamp": r[10]}
+            if not ev.signal_evaluability(sig, max_lag)[0]:
+                continue
+            rows.append({"return_pct": r[0], "direction_correct": r[1],
+                         "mfe_pct": r[2], "mae_pct": r[3], "timeframe": r[4],
+                         "score": r[5], "symbol": r[6], "direction": r[7],
+                         "origin": r[8]})
+        return rows
 
 
 def _with_net(rows: list[dict], cost_bps: float) -> tuple[dict, dict]:
@@ -195,41 +213,51 @@ def summary(
                                      direction=direction, origin=origin,
                                      min_score=min_score, max_score=max_score,
                                      date_from=date_from, date_to=date_to)
+    max_lag = _max_lag_seconds()
     out = {}
     with db.get_conn() as conn:
         with conn.cursor() as cur:
+            # Signaux BUY/SELL (filtres) : total + part non évaluable.
+            # Un signal non évaluable est compté en unavailable ET exclu des
+            # stats / pending / completed : aucun double comptage.
             cur.execute(
-                f"""SELECT COUNT(*) FROM signal_lab_signals s
+                f"""SELECT s.direction, s.created_at, s.entry_timestamp
+                    FROM signal_lab_signals s
                     WHERE s.direction IN ('BUY','SELL')
                     {"AND " + " AND ".join(sig_clauses) if sig_clauses else ""}""",
                 sig_args,
             )
-            total_signals = cur.fetchone()[0]
-            cur.execute(
-                f"""SELECT COUNT(*) FROM signal_lab_signals s
-                    WHERE s.direction IN ('BUY','SELL')
-                      AND s.entry_timestamp IS NULL
-                    {"AND " + " AND ".join(sig_clauses) if sig_clauses else ""}""",
-                sig_args,
-            )
-            unavailable = cur.fetchone()[0]
+            scols = [d[0] for d in cur.description]
+            sig_rows = [dict(zip(scols, r)) for r in cur.fetchall()]
+        total_signals = len(sig_rows)
+        unavailable = sum(
+            1 for s in sig_rows
+            if not ev.signal_evaluability(s, max_lag)[0])
         for h in horizons:
             rows = _completed_rows(conn, h, clauses, args)
             with conn.cursor() as cur:
+                # PENDING dont le signal est évaluable (les PENDING de
+                # signaux non évaluables sont exclus, comptés en unavailable).
                 cur.execute(
-                    f"""SELECT COUNT(*) FROM signal_lab_evaluations e
+                    f"""SELECT s.direction, s.created_at, s.entry_timestamp
+                        FROM signal_lab_evaluations e
                         JOIN signal_lab_signals s ON s.id = e.signal_id
                         WHERE e.status = 'PENDING' AND e.horizon_minutes = %s
                         {"AND " + " AND ".join(clauses) if clauses else ""}""",
                     [h] + args,
                 )
-                pending = cur.fetchone()[0]
+                pcols = [d[0] for d in cur.description]
+                pending = sum(
+                    1 for r in cur.fetchall()
+                    if ev.signal_evaluability(dict(zip(pcols, r)),
+                                             max_lag)[0])
             block = _stats_block(rows, [r["timeframe"] for r in rows])
             block.update({
                 "total_signals": total_signals,
                 "completed_signals": block.pop("n"),
                 "pending_signals": pending,
                 "unavailable_signals": unavailable,
+                "max_entry_lag_seconds": max_lag,
             })
             out[str(h)] = block
     return {"horizons": out, "disclaimer": DISCLAIMER}
@@ -282,9 +310,7 @@ def signals(
             cur.execute(
                 f"""SELECT DISTINCT s.id, s.created_at, s.symbol, s.timeframe,
                            s.direction, s.score, s.entry_price, s.entry_timestamp,
-                           s.entry_price_source, s.origin, s.candle_ts,
-                           CASE WHEN s.entry_timestamp IS NULL
-                                THEN 'unavailable' END AS eval_state
+                           s.entry_price_source, s.origin, s.candle_ts
                     FROM signal_lab_signals s
                     {h_join}
                     WHERE s.direction IN ('BUY','SELL')
@@ -295,15 +321,20 @@ def signals(
             )
             cols = [d[0] for d in cur.description]
             items = [dict(zip(cols, r)) for r in cur.fetchall()]
+            max_lag = _max_lag_seconds()
             for it in items:
+                ok, reason = ev.signal_evaluability(
+                    {"direction": it["direction"],
+                     "created_at": it["created_at"],
+                     "entry_timestamp": it["entry_timestamp"]}, max_lag)
+                it["evaluation_state"] = "available" if ok else "unavailable"
+                it["unavailable_reason"] = reason
                 it["id"] = str(it["id"])
                 it["created_at"] = it["created_at"].isoformat()
                 it["entry_timestamp"] = (it["entry_timestamp"].isoformat()
                                          if it["entry_timestamp"] else None)
                 it["candle_ts"] = (it["candle_ts"].isoformat()
                                    if it["candle_ts"] else None)
-                it["evaluation_state"] = ("unavailable" if it.pop("eval_state")
-                                          else "available")
             if items:
                 cur.execute(
                     """SELECT e.signal_id, e.horizon_minutes, e.status,
@@ -349,6 +380,12 @@ def signal_detail(signal_id: str):
                 raise HTTPException(status_code=404, detail="signal introuvable")
             cols = [d[0] for d in cur.description]
             sig = dict(zip(cols, r))
+            ok, reason = ev.signal_evaluability(
+                {"direction": sig["direction"], "created_at": sig["created_at"],
+                 "entry_timestamp": sig["entry_timestamp"]},
+                _max_lag_seconds())
+            sig["evaluation_state"] = "available" if ok else "unavailable"
+            sig["unavailable_reason"] = reason
             sig["id"] = str(sig["id"])
             for k in ("created_at", "entry_timestamp", "candle_ts"):
                 sig[k] = sig[k].isoformat() if sig[k] else None
@@ -369,9 +406,6 @@ def signal_detail(signal_id: str):
                     d[k] = d[k].isoformat() if d[k] else None
                 evals.append(d)
             sig["evaluations"] = evals
-            sig["evaluation_state"] = ("unavailable"
-                                       if sig["entry_timestamp"] is None
-                                       else "available")
     sig["disclaimer"] = DISCLAIMER
     return sig
 
@@ -410,6 +444,7 @@ def breakdown(
                 groups[str(h)] = _stats_block(rows,
                                              [r["timeframe"] for r in rows])
             return {"group_by": group_by, "groups": groups,
+                    "max_entry_lag_seconds": _max_lag_seconds(),
                     "disclaimer": DISCLAIMER}
         rows = _completed_rows(conn, horizon, clauses, args)
         if group_by == "score_range":
@@ -421,7 +456,9 @@ def breakdown(
                        and int(lo) <= r["score"] <= int(hi)]
                 groups[label] = _stats_block(sub, [x["timeframe"] for x in sub])
             return {"group_by": group_by, "horizon": horizon,
-                    "groups": groups, "disclaimer": DISCLAIMER}
+                    "groups": groups,
+                    "max_entry_lag_seconds": _max_lag_seconds(),
+                    "disclaimer": DISCLAIMER}
         key = {"symbol": "symbol", "timeframe": "timeframe",
                "direction": "direction", "origin": "origin"}[group_by]
         groups: dict[str, dict] = {}
@@ -430,4 +467,6 @@ def breakdown(
             sub = [r for r in rows if r[key] == v]
             groups[str(v)] = _stats_block(sub, [x["timeframe"] for x in sub])
         return {"group_by": group_by, "horizon": horizon,
-                "groups": groups, "disclaimer": DISCLAIMER}
+                "groups": groups,
+                "max_entry_lag_seconds": _max_lag_seconds(),
+                "disclaimer": DISCLAIMER}

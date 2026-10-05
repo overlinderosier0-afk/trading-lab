@@ -37,15 +37,21 @@ def run_cycle(
     batch: int = 100,
     max_attempts: int = 12,
     backoff_max_minutes: int = 30,
+    max_entry_lag_seconds: float = 60.0,
 ) -> dict:
     """Exécute un cycle d'évaluation. Retourne les compteurs du cycle.
 
     klines_fetcher(symbol, start_ms, end_ms) -> list[dict] (bougies 1m,
     format fetch_klines) ; lève en cas d'indisponibilité.
+
+    Seuls les signaux évaluables (evaluation.signal_evaluability, seuil
+    max_entry_lag_seconds) donnent lieu à des PENDING ; une ligne due dont
+    le signal est devenu non évaluable est ignorée sans être touchée.
     """
     now = now or datetime.now(timezone.utc)
     horizons = [int(h) for h in horizons]
-    created = eval_store.ensure_pending_evaluations(conn, horizons)
+    created = eval_store.ensure_pending_evaluations(
+        conn, horizons, max_lag_seconds=max_entry_lag_seconds)
     due = eval_store.claim_due_evaluations(conn, now, limit=batch)
 
     # Regroupe les appels par symbole : une seule requête 1m par symbole.
@@ -66,6 +72,13 @@ def run_cycle(
     completed = transient = permanent = 0
     for row in due:
         eid, horizon = row["id"], row["horizon_minutes"]
+        evaluable, _reason = evaluation.signal_evaluability(
+            row, max_entry_lag_seconds)
+        if not evaluable:
+            # Signal non évaluable (retard d'entrée, entrée non dérivable…)
+            # : ligne laissée intacte — ni complétée, ni fail_transient.
+            # Comptée UNAVAILABLE à la lecture via la même fonction.
+            continue
         data = fetched[row["symbol"]]
         if isinstance(data, Exception):
             transient += 1

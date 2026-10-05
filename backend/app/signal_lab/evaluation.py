@@ -19,6 +19,47 @@ CALC_VERSION = 1
 SCORE_RANGES = ["0-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90-100"]
 
 
+def _as_aware(dt: datetime | None) -> datetime | None:
+    """Normalise un datetime naïf en UTC (défensif : la base renvoie de l'aware)."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def signal_evaluability(signal, max_lag_seconds: float) -> tuple[bool, str | None]:
+    """Unique source de vérité de l'évaluabilité d'un signal.
+
+    Utilisée par le worker (création des PENDING, traitement des dus) ET par
+    toute l'API (stats, summary, breakdown, listes, compteurs) : un même
+    signal reçoit toujours le même verdict des deux côtés.
+
+    `signal` : dict-like avec `direction`, `entry_timestamp`, `created_at`
+    (datetimes aware de préférence ; les naïfs sont lus comme UTC).
+
+    Retourne (True, None) si évaluable, sinon (False, motif) avec motif ∈
+    {'neutral_direction', 'entry_timestamp_not_derivable', 'entry_lag'} :
+    - NEUTRAL : aucun return défini (jamais évalué, jamais compté) ;
+    - entry_timestamp NULL : entrée non dérivable (backfill impossible) ;
+    - entry_lag = created_at − entry_timestamp > max_lag_seconds : une partie
+      de la fenêtre d'évaluation précède la création du signal (retard du
+      moteur, insertion a posteriori…) → mesure non propre.
+    """
+    direction = signal.get("direction")
+    if direction not in ("BUY", "SELL"):
+        return False, "neutral_direction"
+    entry_timestamp = _as_aware(signal.get("entry_timestamp"))
+    if entry_timestamp is None:
+        return False, "entry_timestamp_not_derivable"
+    created_at = _as_aware(signal.get("created_at"))
+    if created_at is None:
+        # Sans created_at on ne peut pas borner le retard : conservateur.
+        return False, "entry_lag"
+    lag = (created_at - entry_timestamp).total_seconds()
+    if lag > max_lag_seconds:
+        return False, "entry_lag"
+    return True, None
+
+
 def _to_ms(ts: datetime) -> int:
     return int(ts.timestamp() * 1000)
 

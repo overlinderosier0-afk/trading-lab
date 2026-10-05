@@ -334,3 +334,50 @@ def test_costs_never_stored_in_evaluation():
     sig = inspect.signature(ev.compute_evaluation)
     assert "cost_bps" not in sig.parameters
     assert "cost" not in str(sig)
+
+
+# ------------------------------------------------------- signal_evaluability
+def _sig(direction="BUY", entry_ts=T0, lag_s=5.0, created=None):
+    created_at = (created if created is not None
+                  else (entry_ts + timedelta(seconds=lag_s)
+                        if entry_ts is not None else None))
+    return {"direction": direction, "entry_timestamp": entry_ts,
+            "created_at": created_at}
+
+
+def test_evaluability_ok_within_lag():
+    assert ev.signal_evaluability(_sig(lag_s=5.0), 60.0) == (True, None)
+
+
+def test_evaluability_boundary_lag_equals_threshold():
+    # lag == seuil : évaluable (le garde-fou déclenche strictement au-delà).
+    assert ev.signal_evaluability(_sig(lag_s=60.0), 60.0) == (True, None)
+
+
+def test_evaluability_lag_exceeded():
+    ok, reason = ev.signal_evaluability(_sig(lag_s=61.0), 60.0)
+    assert (ok, reason) == (False, "entry_lag")
+
+
+def test_evaluability_no_entry_timestamp():
+    ok, reason = ev.signal_evaluability(_sig(entry_ts=None), 60.0)
+    assert (ok, reason) == (False, "entry_timestamp_not_derivable")
+
+
+def test_evaluability_neutral_direction():
+    ok, reason = ev.signal_evaluability(_sig(direction="NEUTRAL"), 60.0)
+    assert (ok, reason) == (False, "neutral_direction")
+
+
+def test_evaluability_naive_datetimes_read_as_utc():
+    naive = {"direction": "BUY",
+             "entry_timestamp": T0.replace(tzinfo=None),
+             "created_at": (T0 + timedelta(seconds=5)).replace(tzinfo=None)}
+    assert ev.signal_evaluability(naive, 60.0) == (True, None)
+
+
+def test_evaluability_custom_threshold():
+    # Même signal, verdict différent selon le seuil : la fonction est
+    # l'unique source de vérité, pas le seuil codé en dur.
+    assert ev.signal_evaluability(_sig(lag_s=45.0), 60.0) == (True, None)
+    assert ev.signal_evaluability(_sig(lag_s=45.0), 30.0) == (False, "entry_lag")

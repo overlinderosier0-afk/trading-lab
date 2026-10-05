@@ -149,6 +149,7 @@ def signal_lab_eval_job() -> None:
                 conn, klines_fetcher=fetch_1m, horizons=horizons,
                 max_attempts=settings.signal_lab_eval_max_attempts,
                 backoff_max_minutes=settings.signal_lab_eval_backoff_max_minutes,
+                max_entry_lag_seconds=settings.signal_lab_eval_max_entry_lag_seconds,
             )
         if res["completed"] or res["permanent"] or res["created"]:
             log.info("signal_lab_eval : %s", res,
