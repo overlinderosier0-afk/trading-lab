@@ -1,24 +1,16 @@
 import { useState } from "react";
-import Dashboard from "./tabs/Dashboard";
-import Backtests from "./tabs/Backtests";
-import Validation from "./tabs/Validation";
-import Paper from "./tabs/Paper";
 import Market from "./tabs/Market";
 import SignalLab from "./tabs/SignalLab";
 import System from "./tabs/System";
 
 const TABS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "backtests", label: "Backtests" },
-  { id: "validation", label: "Validation" },
-  { id: "paper", label: "Paper Trading" },
   { id: "signallab", label: "Signal Lab" },
   { id: "market", label: "Marché" },
   { id: "system", label: "Système" },
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("signallab");
   return (
     <div className="min-h-screen text-[#c9d4e3]">
       <div className="aurora-bg" aria-hidden="true" />
@@ -50,10 +42,6 @@ export default function App() {
         </nav>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-5">
-        {tab === "dashboard" && <Dashboard />}
-        {tab === "backtests" && <Backtests />}
-        {tab === "validation" && <Validation />}
-        {tab === "paper" && <Paper />}
         {tab === "signallab" && <SignalLab />}
         {tab === "market" && <Market />}
         {tab === "system" && <System />}
