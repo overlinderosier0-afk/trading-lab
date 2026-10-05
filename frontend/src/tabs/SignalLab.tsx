@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, shortTs } from "../api";
 import { Btn, Card, ErrorBox, Field, inputCls, Loading, SignalBadge } from "../components";
+import SignalLabEval from "./SignalLabEval";
 
 interface Factor { label: string; weight: number; points: number }
 
@@ -106,6 +107,7 @@ export default function SignalLab() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [subTab, setSubTab] = useState<"signaux" | "evaluation">("signaux");
 
   async function loadAll(sym = symbol, tf = timeframe) {
     setLoading(true); setError("");
@@ -172,6 +174,22 @@ export default function SignalLab() {
 
       {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={() => loadAll()} /> : (
         <>
+          <div className="tabbar flex gap-1 p-1.5">
+            {(["signaux", "evaluation"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setSubTab(t)}
+                className={`whitespace-nowrap px-4 py-2 text-sm font-semibold ${
+                  subTab === t ? "tab-active" : "tab-idle"
+                }`}
+              >
+                {t === "signaux" ? "Signaux" : "Évaluation"}
+              </button>
+            ))}
+          </div>
+
+          {subTab === "evaluation" ? <SignalLabEval /> : (
+          <>
           {sig && (
             <div className="grid gap-4 lg:grid-cols-5">
               <Card className="lg:col-span-2">
@@ -296,6 +314,8 @@ export default function SignalLab() {
               )}
             </Card>
           </div>
+          </>
+          )}
         </>
       )}
     </div>

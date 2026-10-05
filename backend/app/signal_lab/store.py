@@ -44,17 +44,26 @@ def insert_signal(
     result: dict,
     candle_ts=None,
     origin: str = "manual",
+    entry_timestamp=None,
+    entry_price_source: str = "candle_close",
 ) -> dict:
     """Stocke un signal BUY/SELL. Retourne id + resolve_at."""
     hm = horizon_minutes(timeframe)
     resolve_at = datetime.now(timezone.utc) + timedelta(minutes=hm)
+    # entry_price = close de la bougie déclencheuse (déterministe) :
+    # son horodatage = close de candle_ts.
+    if entry_timestamp is None and candle_ts is not None:
+        tf_min = TIMEFRAME_MINUTES.get(timeframe)
+        entry_timestamp = (candle_ts + timedelta(minutes=tf_min)
+                           if tf_min else candle_ts)
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO signal_lab_signals
                (symbol, timeframe, direction, score, total, factors, justification,
                 indicators, entry_price, stop_loss, take_profit, atr,
-                horizon_minutes, resolve_at, candle_ts, origin)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                horizon_minutes, resolve_at, candle_ts, origin,
+                entry_timestamp, entry_price_source)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                RETURNING id, created_at""",
             (
                 symbol, timeframe, result["direction"], result["score"], result["total"],
@@ -63,6 +72,7 @@ def insert_signal(
                 psycopg.types.json.Json(result["indicators"]),
                 result["entry"], result["stop_loss"], result["take_profit"],
                 result["atr"], hm, resolve_at, candle_ts, origin,
+                entry_timestamp, entry_price_source,
             ),
         )
         row = cur.fetchone()

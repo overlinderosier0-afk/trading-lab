@@ -125,6 +125,39 @@ def signal_lab_auto_job() -> None:
                          f"signal_lab_auto_job : {type(exc).__name__}", {})
 
 
+def signal_lab_eval_job() -> None:
+    """Évaluation observationnelle des signaux (paper-trading de mesure).
+
+    Bougies 1m récupérées à la demande (lecture seule, jamais stockées).
+    Ne génère rien, n'ouvre aucune position.
+    """
+    try:
+        from app.config import settings
+        if not (settings.signal_lab_enabled and settings.signal_lab_eval_enabled):
+            return
+        from app.market_data import binance
+        from app.signal_lab import eval_worker
+
+        def fetch_1m(symbol: str, start_ms: int, end_ms: int) -> list:
+            return binance.fetch_klines(symbol, "1m", start_ms=start_ms,
+                                        end_ms=end_ms)
+
+        horizons = tuple(int(h) for h in
+                         settings.signal_lab_eval_horizons.split(",") if h.strip())
+        with db.get_conn() as conn:
+            res = eval_worker.run_cycle(
+                conn, klines_fetcher=fetch_1m, horizons=horizons,
+                max_attempts=settings.signal_lab_eval_max_attempts,
+                backoff_max_minutes=settings.signal_lab_eval_backoff_max_minutes,
+            )
+        if res["completed"] or res["permanent"] or res["created"]:
+            log.info("signal_lab_eval : %s", res,
+                     extra={"event": "SIGNAL_EVALUATION_CYCLE"})
+    except Exception as exc:
+        limits.log_event("ERROR", "SYSTEM_ERROR",
+                         f"signal_lab_eval_job : {type(exc).__name__}", {})
+
+
 def start() -> None:
     global _scheduler
     if _scheduler and _scheduler.running:
@@ -138,8 +171,10 @@ def start() -> None:
                        max_instances=1, coalesce=True, id="signal_lab_resolve_job")
     _scheduler.add_job(signal_lab_auto_job, "interval", minutes=5,
                        max_instances=1, coalesce=True, id="signal_lab_auto_job")
+    _scheduler.add_job(signal_lab_eval_job, "interval", seconds=60,
+                       max_instances=1, coalesce=True, id="signal_lab_eval_job")
     _scheduler.start()
-    log.info("Scheduler démarré (sync 30min, paper 15min, signal-lab 5min)",
+    log.info("Scheduler démarré (sync 30min, paper 15min, signal-lab 5min, eval 60s)",
              extra={"event": "SCHEDULER_START"})
 
 

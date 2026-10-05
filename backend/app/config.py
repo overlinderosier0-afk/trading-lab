@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     # assurée par le job signal_lab_resolve_job.
     signal_lab_auto_enabled: bool = False
     signal_lab_auto_timeframes: str = "5m"
+    # Signal Lab — évaluation observationnelle (paper-trading de mesure).
+    # Les bougies 1m sont récupérées à la demande via fetch_klines (jamais
+    # stockées) : le pipeline de collecte ne change pas.
+    signal_lab_eval_enabled: bool = True
+    signal_lab_eval_horizons: str = "5,15,30,60"
+    signal_lab_eval_interval_seconds: int = 60
+    signal_lab_eval_cost_bps: float = 20.0
+    signal_lab_eval_paper_stake_usdt: float = 100.0
+    signal_lab_eval_max_attempts: int = 12
+    signal_lab_eval_backoff_max_minutes: int = 30
 
 
 settings = Settings()
