@@ -189,6 +189,7 @@ def _stats_block(rows: list[dict], timeframes: list[str]) -> dict:
     return block
 
 
+@router.get("/api/signal-lab/evaluation/summary")
 @router.get("/api/signal-lab/eval/summary")
 def summary(
     horizon: int | None = None,
@@ -263,6 +264,7 @@ def summary(
     return {"horizons": out, "disclaimer": DISCLAIMER}
 
 
+@router.get("/api/signal-lab/evaluation/signals")
 @router.get("/api/signal-lab/eval/signals")
 def signals(
     horizon: int | None = None,
@@ -365,6 +367,7 @@ def signals(
             "disclaimer": DISCLAIMER}
 
 
+@router.get("/api/signal-lab/evaluation/signals/{signal_id}")
 @router.get("/api/signal-lab/eval/signals/{signal_id}")
 def signal_detail(signal_id: str):
     """Détail d'un signal : entrée + toutes ses évaluations."""
@@ -414,6 +417,7 @@ def signal_detail(signal_id: str):
     return sig
 
 
+@router.get("/api/signal-lab/evaluation/breakdown")
 @router.get("/api/signal-lab/eval/breakdown")
 def breakdown(
     group_by: str = Query(...),

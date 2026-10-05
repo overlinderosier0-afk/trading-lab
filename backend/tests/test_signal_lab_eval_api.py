@@ -294,3 +294,30 @@ def test_breakdown_exposes_threshold(client_with_lag):
     assert body["max_entry_lag_seconds"] == 60.0
     # Le signal lagué est exclu des stats groupées aussi.
     assert body["groups"]["5"]["n"] == 1
+
+
+@needs_pg
+def test_alias_prefix_evaluation(client):
+    """Les deux préfixes /eval/* et /evaluation/* servent les mêmes
+    handlers avec le même contenu (décision #6)."""
+    r1 = client.get("/api/signal-lab/eval/summary")
+    r2 = client.get("/api/signal-lab/evaluation/summary")
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r2.json() == r1.json()
+
+    items = client.get("/api/signal-lab/eval/signals").json()["items"]
+    sid = items[0]["id"]
+    r1 = client.get(f"/api/signal-lab/eval/signals/{sid}")
+    r2 = client.get(f"/api/signal-lab/evaluation/signals/{sid}")
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r2.json() == r1.json()
+
+    r1 = client.get("/api/signal-lab/eval/breakdown",
+                    params={"group_by": "horizon"})
+    r2 = client.get("/api/signal-lab/evaluation/breakdown",
+                    params={"group_by": "horizon"})
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r2.json() == r1.json()

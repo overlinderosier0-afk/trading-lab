@@ -224,6 +224,57 @@ def test_golden_reference():
     assert r60["return_pct"] == pytest.approx(2.00)
 
 
+# ---------------------------------------------------------------- équivalence 1m / 5m
+def _aggregate_5m(candles_1m):
+    """Agrège des bougies 1m en bougies 5m (open 1re, close dernière,
+    high=max, low=min) — même convention que le store de bougies."""
+    out = []
+    for i in range(0, len(candles_1m), 5):
+        grp = candles_1m[i:i + 5]
+        out.append({
+            "open_ms": grp[0]["open_ms"],
+            "close_ms": grp[-1]["close_ms"],
+            "open": grp[0]["open"],
+            "high": max(c["high"] for c in grp),
+            "low": min(c["low"] for c in grp),
+            "close": grp[-1]["close"],
+            "volume": sum(c["volume"] for c in grp),
+        })
+    return out
+
+
+def _relief_series(start, n, price=100.0):
+    """n bougies 1m avec du relief (high/low variés), dès `start`."""
+    cs, px = [], price
+    for i in range(n):
+        o = px
+        h = px + 0.30 + (i % 7) * 0.05
+        l = px - 0.25 - (i % 5) * 0.04
+        c = px + 0.10 - (i % 3) * 0.08
+        cs.append(candle(start + timedelta(minutes=i), o, h, l, c))
+        px = c
+    return cs
+
+
+@pytest.mark.parametrize("direction", ["BUY", "SELL"])
+@pytest.mark.parametrize("horizon", [5, 15, 30, 60])
+def test_equivalence_1m_5m(direction, horizon):
+    """Le worker mesure sur des 1m à la demande ; le store ne garde que des
+    5m. Sur des fenêtres échantillons, les deux granularités doivent donner
+    le même exit, return, MFE et MAE (décision #1)."""
+    cs1m = _relief_series(T0, 60)
+    cs5m = _aggregate_5m(cs1m)
+    assert len(cs5m) == 12
+    r1 = ev.compute_evaluation(100.0, direction, cs1m, horizon, T0)
+    r5 = ev.compute_evaluation(100.0, direction, cs5m, horizon, T0)
+    assert r1 is not None and r5 is not None
+    for key in ("exit_price", "return_pct", "mfe_pct", "mae_pct"):
+        assert r1[key] == pytest.approx(r5[key], abs=1e-9), key
+    # Invariants MFE/MAE conservés des deux côtés.
+    assert r1["mfe_pct"] >= max(0.0, r1["return_pct"])
+    assert r1["mae_pct"] <= min(0.0, r1["return_pct"])
+
+
 # ---------------------------------------------------------------- stats
 def _row(ret, correct=True, mfe=1.0, mae=-1.0):
     return {"return_pct": ret, "direction_correct": correct,

@@ -70,6 +70,29 @@ c'est de la mesure, pas une stratégie.**
    `limited` < 100, `adequate` sinon), avertissement si timeframes mélangés,
    UNAVAILABLE/ERROR exclus des stats et comptés à part.
 
+### Décisions actées le 2026-10-05 (revue spec v2 / déployé)
+
+- **#1 — Bougies 1m à la demande conservées.** Le worker récupère les
+  bougies 1m via le même client `fetch_klines`, la même base URL
+  (`https://data-api.binance.vision`, `binance_base_url`) et le même marché
+  que le collecteur : `backend/app/scheduler.py:142`
+  (`binance.fetch_klines(symbol, "1m", ...)`) vs
+  `backend/app/market_data/sync.py:51`
+  (`binance.fetch_klines(sym, timeframe, ...)`). Le pipeline de collecte
+  (5m/1h/4h/1d) est inchangé, rien n'est stocké en 1m. Équivalence prouvée
+  par `test_equivalence_1m_5m` (BUY/SELL × horizons 5/15/30/60) :
+  exit, return, MFE et MAE identiques entre 1m et 5m agrégées.
+- **#4 — UNAVAILABLE dérivé à la lecture, conservé.** Pas de lignes
+  UNAVAILABLE en base ; le statut est dérivé à la lecture via
+  `signal_evaluability()`, unique source de vérité partagée par le worker
+  et toute l'API. Les évaluations COMPLETED existantes ne sont jamais
+  modifiées : elles sont seulement exclues des stats et leurs signaux
+  comptés en unavailable (sans double comptage).
+- **#6 — Alias de routes.** Le préfixe historique `/api/signal-lab/eval/*`
+  est conservé ; `/api/signal-lab/evaluation/*` est ajouté en alias des
+  mêmes handlers (double décorateur, aucune duplication de code).
+  Test sur les deux préfixes : `test_alias_prefix_evaluation`.
+
 ## Limites connues
 
 - Pas de slippage ni de profondeur de carnet : le P&L paper est optimiste.
