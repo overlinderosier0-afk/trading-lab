@@ -101,6 +101,21 @@ def select_window_candles(
     return kept
 
 
+def result_label(return_pct: float | None) -> str | None:
+    """Label de résultat dérivé du return, unique source de vérité (§2).
+
+    'WIN' si return > 0, 'LOSS' si < 0, 'FLAT' si == 0, None si None.
+    Dérivé à la lecture : aucune colonne ajoutée, aucune donnée modifiée.
+    """
+    if return_pct is None:
+        return None
+    if return_pct > 0:
+        return "WIN"
+    if return_pct < 0:
+        return "LOSS"
+    return "FLAT"
+
+
 def compute_evaluation(
     entry_price: float,
     direction: str,
@@ -127,7 +142,8 @@ def compute_evaluation(
         return_pct = (exit_price - entry_price) / entry_price * 100.0
     else:
         return_pct = (entry_price - exit_price) / entry_price * 100.0
-    direction_correct = True if return_pct > 0 else (False if return_pct < 0 else None)
+    rl = result_label(return_pct)
+    direction_correct = {"WIN": True, "LOSS": False, "FLAT": None}[rl]
     highs = [float(c["high"]) for c in window]
     lows = [float(c["low"]) for c in window]
     if direction == "BUY":
@@ -173,13 +189,16 @@ def _finite_or_none(v) -> float | None:
 def aggregate_stats(rows: list[dict]) -> dict:
     """Stats sur des évaluations COMPLETED d'UN SEUL horizon.
 
-    rows : dicts avec return_pct, direction_correct, mfe_pct, mae_pct.
+    rows : dicts avec return_pct, mfe_pct, mae_pct (direction_correct
+    historique accepté mais ignoré : wins/losses/flats sont dérivés de
+    return_pct via result_label, plus robuste).
     Valeurs indéfinies → None (jamais NaN/Infinity).
     """
     n = len(rows)
-    wins = sum(1 for r in rows if r.get("direction_correct") is True)
-    losses = sum(1 for r in rows if r.get("direction_correct") is False)
-    neutrals = n - wins - losses
+    labels = [result_label(r.get("return_pct")) for r in rows]
+    wins = sum(1 for l in labels if l == "WIN")
+    losses = sum(1 for l in labels if l == "LOSS")
+    flats = sum(1 for l in labels if l == "FLAT")
     rets = [r["return_pct"] for r in rows if r.get("return_pct") is not None]
     mfes = [r["mfe_pct"] for r in rows if r.get("mfe_pct") is not None]
     maes = [r["mae_pct"] for r in rows if r.get("mae_pct") is not None]
@@ -190,10 +209,10 @@ def aggregate_stats(rows: list[dict]) -> dict:
         "n": n,
         "wins": wins,
         "losses": losses,
-        "neutrals": neutrals,
+        "flats": flats,
         "win_rate": _finite_or_none(wins / n) if n else None,
         "loss_rate": _finite_or_none(losses / n) if n else None,
-        "neutral_rate": _finite_or_none(neutrals / n) if n else None,
+        "flat_rate": _finite_or_none(flats / n) if n else None,
         "average_return": _finite_or_none(sum(rets) / len(rets)) if rets else None,
         "median_return": _finite_or_none(median(rets)) if rets else None,
         "total_return": _finite_or_none(sum(rets)) if rets else None,

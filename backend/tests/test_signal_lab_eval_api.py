@@ -105,6 +105,9 @@ def test_summary_shape_and_simulated_tag(client):
         assert row["completed_signals"] == 2
         assert row["win_rate"] is not None
         assert row["paper_pnl"]["simulated"] is True
+        # Clés renommées : flats/flat_rate, plus de neutrals/neutral_rate.
+        assert "flats" in row and "flat_rate" in row
+        assert "neutrals" not in row and "neutral_rate" not in row
 
 
 @needs_pg
@@ -124,6 +127,9 @@ def test_signals_list_and_detail(client):
     assert r.status_code == 200
     items = r.json()["items"]
     assert len(items) == 2
+    # Tri created_at DESC : items[0] = SELL (return < 0), items[1] = BUY (> 0).
+    assert items[0]["evaluations"]["5"]["result"] == "LOSS"
+    assert items[1]["evaluations"]["5"]["result"] == "WIN"
     sid = items[0]["id"]
     r = client.get(f"/api/signal-lab/eval/signals/{sid}")
     assert r.status_code == 200
@@ -131,6 +137,8 @@ def test_signals_list_and_detail(client):
     assert len(body["evaluations"]) == 4
     assert all(e["status"] == "COMPLETED" for e in body["evaluations"])
     assert body["direction"] in ("BUY", "SELL")
+    expected = "WIN" if body["direction"] == "BUY" else "LOSS"
+    assert all(e["result"] == expected for e in body["evaluations"])
     assert "SIMULATED" in body["disclaimer"]
 
 
@@ -139,6 +147,52 @@ def test_signals_404(client):
     r = client.get("/api/signal-lab/eval/signals/00000000-0000-0000-0000-"
                    "000000000000")
     assert r.status_code == 404
+
+
+@needs_pg
+def test_result_flat_in_list_and_detail(client):
+    # Signal supplémentaire avec une évaluation COMPLETED à return = 0.
+    entry_ts = T0 - timedelta(minutes=30)
+    with psycopg.connect(TEST_DSN) as c:
+        with c.cursor() as cur:
+            cur.execute(
+                """INSERT INTO signal_lab_signals
+                   (symbol, timeframe, direction, score, total, factors,
+                    justification, indicators, entry_price, stop_loss,
+                    take_profit, atr, horizon_minutes, resolve_at,
+                    candle_ts, origin, entry_timestamp, entry_price_source,
+                    created_at)
+                   VALUES ('ETHUSDT','5m','BUY',55,5.0,'{}','{}','{}',
+                           200.0, 199.0, 202.0, 1.0, 15,
+                           %s, %s, 'auto', %s, 'candle_close', %s)
+                   RETURNING id""",
+                (T0 + timedelta(minutes=15), T0 - timedelta(minutes=35),
+                 entry_ts, entry_ts + timedelta(seconds=10)),
+            )
+            sid = str(cur.fetchone()[0])
+            cur.execute(
+                """INSERT INTO signal_lab_evaluations
+                   (signal_id, horizon_minutes, entry_price, exit_price,
+                    return_pct, direction_correct, mfe_pct, mae_pct,
+                    status, evaluated_at, due_at, exit_timestamp)
+                   VALUES (%s, 15, 200.0, 200.0, 0.0, NULL, 0.1, -0.1,
+                           'COMPLETED', %s, %s, %s)""",
+                (sid, T0, entry_ts + timedelta(minutes=15),
+                 entry_ts + timedelta(minutes=15)),
+            )
+        c.commit()
+    r = client.get("/api/signal-lab/eval/signals",
+                   params={"symbol": "ETHUSDT"})
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) == 1
+    assert items[0]["evaluations"]["15"]["result"] == "FLAT"
+    r = client.get(f"/api/signal-lab/eval/signals/{sid}")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["evaluations"]) == 1
+    assert body["evaluations"][0]["result"] == "FLAT"
+    assert body["evaluations"][0]["return_pct"] == 0.0
 
 
 @needs_pg

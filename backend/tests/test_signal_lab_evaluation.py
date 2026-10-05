@@ -287,14 +287,34 @@ def test_sample_quality_thresholds():
     assert ev.sample_quality(300) == "Large sample"
 
 
-def test_win_loss_neutral_rates():
+def test_result_label():
+    assert ev.result_label(0.5) == "WIN"
+    assert ev.result_label(0.0001) == "WIN"
+    assert ev.result_label(-0.5) == "LOSS"
+    assert ev.result_label(-0.0001) == "LOSS"
+    assert ev.result_label(0.0) == "FLAT"
+    assert ev.result_label(None) is None
+
+
+def test_win_loss_flat_rates():
     rows = [_row(1.0, True), _row(-1.0, False), _row(0.0, None), _row(2.0, True)]
     s = ev.aggregate_stats(rows)
-    assert s["n"] == 4 and s["wins"] == 2 and s["losses"] == 1 and s["neutrals"] == 1
+    assert s["n"] == 4 and s["wins"] == 2 and s["losses"] == 1 and s["flats"] == 1
+    assert s["wins"] + s["losses"] + s["flats"] == s["n"]
     assert s["win_rate"] == pytest.approx(0.5)
+    # loss_rate = losses / n, pas 1 - win_rate : avec un FLAT, 1 - 0.5 != 0.25.
     assert s["loss_rate"] == pytest.approx(0.25)
-    assert s["neutral_rate"] == pytest.approx(0.25)
+    assert s["loss_rate"] != pytest.approx(1 - s["win_rate"])
+    assert s["flat_rate"] == pytest.approx(0.25)
     assert s["total_return"] == pytest.approx(2.0)
+
+
+def test_aggregate_stats_derives_from_return_pct_not_direction_correct():
+    # direction_correct incohérent : le label vient de return_pct seul.
+    rows = [_row(1.0, False), _row(-1.0, True), _row(0.0, True)]
+    s = ev.aggregate_stats(rows)
+    assert s["wins"] == 1 and s["losses"] == 1 and s["flats"] == 1
+    assert "neutrals" not in s and "neutral_rate" not in s
 
 
 def test_horizons_never_mixed():

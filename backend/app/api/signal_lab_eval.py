@@ -168,9 +168,9 @@ def _stats_block(rows: list[dict], timeframes: list[str]) -> dict:
         "n": gross["n"],
         "sample_quality": gross["sample_quality"],
         "wins": gross["wins"], "losses": gross["losses"],
-        "neutrals": gross["neutrals"],
+        "flats": gross["flats"],
         "win_rate": gross["win_rate"], "loss_rate": gross["loss_rate"],
-        "neutral_rate": gross["neutral_rate"],
+        "flat_rate": gross["flat_rate"],
         "average_return": gross["average_return"],
         "average_return_net": net["average_return"],
         "median_return": gross["median_return"],
@@ -350,6 +350,8 @@ def signals(
                 for r in cur.fetchall():
                     d = dict(zip(ecols, r))
                     d["signal_id"] = str(d["signal_id"])
+                    # Label WIN/LOSS/FLAT dérivé à la lecture (aucune colonne).
+                    d["result"] = ev.result_label(d["return_pct"])
                     for k in ("exit_timestamp", "evaluated_at", "created_at"):
                         d[k] = d[k].isoformat() if d[k] else None
                     by_signal.setdefault(d.pop("signal_id"), {})[
@@ -402,6 +404,8 @@ def signal_detail(signal_id: str):
             evals = []
             for er in cur.fetchall():
                 d = dict(zip(ecols, er))
+                # Label WIN/LOSS/FLAT dérivé à la lecture (aucune colonne).
+                d["result"] = ev.result_label(d["return_pct"])
                 for k in ("exit_timestamp", "evaluated_at", "created_at"):
                     d[k] = d[k].isoformat() if d[k] else None
                 evals.append(d)

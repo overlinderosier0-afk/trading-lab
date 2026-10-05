@@ -7,8 +7,8 @@ interface StatsBlock {
   total_signals: number; completed_signals: number; pending_signals: number;
   unavailable_signals: number;
   n?: number; sample_quality: string;
-  wins: number; losses: number; neutrals: number;
-  win_rate: number | null; loss_rate: number | null; neutral_rate: number | null;
+  wins: number; losses: number; flats: number;
+  win_rate: number | null; loss_rate: number | null; flat_rate: number | null;
   average_return: number | null; average_return_net: number | null;
   median_return: number | null; median_return_net: number | null;
   total_return: number | null; total_return_net: number | null;
@@ -29,6 +29,7 @@ interface EvalCell {
   horizon_minutes: number; status: string; entry_price: number;
   exit_price: number | null; exit_timestamp: string | null;
   return_pct: number | null; direction_correct: boolean | null;
+  result: string | null;
   mfe_pct: number | null; mae_pct: number | null;
   evaluated_at: string | null; created_at: string;
 }
@@ -143,11 +144,14 @@ function EvalStatusBadge({ status }: { status: string }) {
   );
 }
 
-function ResultBadge({ v }: { v: boolean | null }) {
-  if (v === null) return <span className="text-[#5b6b82]">NEUTRAL</span>;
-  return v
-    ? <span className="font-bold text-[#00e676]">WIN</span>
-    : <span className="font-bold text-[#ff5252]">LOSS</span>;
+function ResultBadge({ result }: { result: string | null }) {
+  if (result === "WIN")
+    return <span className="font-bold text-[#00e676]">WIN</span>;
+  if (result === "LOSS")
+    return <span className="font-bold text-[#ff5252]">LOSS</span>;
+  if (result === "FLAT")
+    return <span className="font-bold text-[#5b6b82]">FLAT</span>;
+  return <span className="text-[#5b6b82]">—</span>;
 }
 
 // ---------------------------------------------------------------- onglet
@@ -246,7 +250,7 @@ export default function SignalLabEval() {
             <Metric label={`Signaux (horizon ${horizon}m)`} value={String(block.completed_signals)}
                     sub={<><QualityBadge q={block.sample_quality} /> <span className="ml-1">{block.pending_signals} en attente{block.unavailable_signals > 0 && `, ${block.unavailable_signals} N/A`}</span></>} />
             <Metric label="Win rate" value={rate(block.win_rate)}
-                    sub={`${block.wins}W / ${block.losses}L / ${block.neutrals}N`} />
+                    sub={`${block.wins}W / ${block.losses}L / ${block.flats}F`} />
             <Metric label="Avg return (brut / net)" value={pct(block.average_return)}
                     sub={`net ${pct(block.average_return_net)} (frais ${20} bps)`} />
             <Metric label="Profit factor" value={block.profit_factor === null ? "—" : block.profit_factor.toFixed(2)}
@@ -305,12 +309,13 @@ export default function SignalLabEval() {
             {signals && signals.items.length > 0 ? (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <table className="w-full min-w-[800px] text-sm">
                     <thead><tr className="text-left text-xs uppercase text-[#5b6b82]">
                       <th className="py-2 pr-3">Heure</th><th className="pr-3">Symbole</th>
                       <th className="pr-3">Dir</th><th className="pr-3 text-right">Score</th>
                       <th className="pr-3 text-right">Entrée</th>
                       {HORIZONS.map((h) => <th key={h} className="pr-3 text-right">{h}m</th>)}
+                      <th className="pr-3 text-right">Résultat</th>
                       <th className="text-right">Statut</th>
                     </tr></thead>
                     <tbody>
@@ -334,6 +339,16 @@ export default function SignalLabEval() {
                               </td>
                             );
                           })}
+                          <td className="pr-3 text-right">
+                            {(() => {
+                              const e = s.evaluations[horizon];
+                              if (!e) return <span className="text-[#5b6b82]">—</span>;
+                              if (e.status === "COMPLETED") return <ResultBadge result={e.result} />;
+                              if (e.status === "ERROR") return <span className="text-[#ff5252]">ERR</span>;
+                              if (s.evaluation_state === "unavailable") return <span className="text-[#5b6b82]">N/A</span>;
+                              return <span className="text-[#ffb300]">…</span>;
+                            })()}
+                          </td>
                           <td className="text-right">
                             {s.evaluation_state === "unavailable"
                               ? <span className="text-xs text-[#5b6b82]">N/A</span>
@@ -391,7 +406,7 @@ export default function SignalLabEval() {
                       <td className="pr-3 text-right tabular-nums">{pct(e.mfe_pct)}</td>
                       <td className="pr-3 text-right tabular-nums">{pct(e.mae_pct)}</td>
                       <td className="text-right">
-                        {e.status === "COMPLETED" ? <ResultBadge v={e.direction_correct} />
+                        {e.status === "COMPLETED" ? <ResultBadge result={e.result} />
                           : e.status === "ERROR" ? <span className="text-[#ff5252]">ERR</span>
                           : <span className="text-[#ffb300]">En attente</span>}
                       </td>
