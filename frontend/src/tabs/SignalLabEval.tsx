@@ -100,7 +100,7 @@ function ScoreBars({ groups, valueKey, fmt }: {
       <line x1={padL} y1={zeroY} x2={W - padL} y2={zeroY} stroke="#1c2634" />
       {SCORE_ORDER.map((k, i) => {
         const v = vals[i];
-        const n = groups[k]?.completed_signals ?? 0;
+        const n = groups[k]?.n ?? 0;
         const x = padL + i * bw + bw * 0.18;
         const w = bw * 0.64;
         if (v === null) {
@@ -278,7 +278,7 @@ export default function SignalLabEval() {
                     return (
                       <tr key={h} className={`border-t border-white/10 ${h === horizon ? "bg-white/5" : ""}`}>
                         <td className="py-2 pr-3 font-bold tabular-nums">{h} min</td>
-                        <td className="pr-3 text-right tabular-nums">{b?.completed_signals ?? "—"}</td>
+                        <td className="pr-3 text-right tabular-nums">{b?.n ?? "—"}</td>
                         <td className="pr-3 text-right tabular-nums">{rate(b?.win_rate)}</td>
                         <td className="pr-3 text-right tabular-nums">{pct(b?.average_return)}</td>
                         <td className="pr-3 text-right tabular-nums">{pct(b?.median_return)}</td>
