@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from app import db
 from app.market_data import sync as market_sync
@@ -170,7 +171,8 @@ def start() -> None:
                        max_instances=1, coalesce=True, id="paper_job")
     _scheduler.add_job(signal_lab_resolve_job, "interval", minutes=5,
                        max_instances=1, coalesce=True, id="signal_lab_resolve_job")
-    _scheduler.add_job(signal_lab_auto_job, "interval", minutes=5,
+    _scheduler.add_job(signal_lab_auto_job,
+                       CronTrigger(minute="*/5", second="40", timezone="UTC"),
                        max_instances=1, coalesce=True, id="signal_lab_auto_job")
     _scheduler.add_job(signal_lab_eval_job, "interval", seconds=60,
                        max_instances=1, coalesce=True, id="signal_lab_eval_job")
